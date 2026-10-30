@@ -91,7 +91,7 @@ public class CmdLineArgsImpl implements CmdLineArgs {
     private List<String> passwords;
 
     @Parameter(names = "-profile", description = "use a processing profile: forensic, pedo, "
-            + "fastmode, blind, triage. More details in manual.")
+            + "fastmode, blind, triage, lite. More details in manual.")
     private String profile;
 
     @Parameter(names = "--addowner", description = "index file owner info when processing local folders (slow over network)")

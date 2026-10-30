@@ -1,0 +1,2 @@
+# One Sleuthkit image reader process instead of cores/6.
+numImageReaders = 1

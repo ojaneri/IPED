@@ -1,0 +1,5 @@
+########################################################################
+# Lite profile: local environment configuration
+########################################################################
+# Fewer workers means less memory held at the same time (text caches, parsers, index buffers).
+numThreads = 4

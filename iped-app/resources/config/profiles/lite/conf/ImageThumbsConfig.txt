@@ -1,0 +1,2 @@
+# Smaller thumbnails use less memory in the analysis gallery cache.
+imgThumbSize = 160

@@ -1,0 +1,2 @@
+# Keep the cache of parsed text on disk when it is bigger than the in-memory limit.
+storeTextCacheOnDisk = true

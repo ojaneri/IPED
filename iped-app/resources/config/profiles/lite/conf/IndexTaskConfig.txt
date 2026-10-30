@@ -1,0 +1,6 @@
+# Do not store term vectors: smaller index and less memory while indexing.
+storeTermVectors = false
+# Smaller text fragments sent to the index writer at once, per thread (chars).
+textSplitSize = 1000000
+# Maximum word length to be indexed.
+maxTokenLength = 128

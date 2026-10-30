@@ -1,0 +1,26 @@
+########################################################################
+# Lite profile: low memory processing (target: 8GB RAM machines)
+# Based on the default profile, with heavy optional features disabled.
+# Hashing, file parsing, container expansion and indexing are kept.
+########################################################################
+enableGraphGeneration = false
+enableLanguageDetect = false
+enableVideoThumbs = false
+enableHTMLReport = false
+enableOCR = false
+enableAudioTranscription = false
+enableNamedEntityRecogniton = false
+enableImageSimilarity = false
+enableFaceRecognition = false
+enableAgeEstimation = false
+enableDocThumbs = false
+enableCarving = false
+enableLedCarving = false
+enableKnownMetCarving = false
+enableLedDie = false
+enableYahooNSFWDetection = false
+enableCSAMDetector = false
+enableQRCode = false
+enableRemoteImageClassifier = false
+enableIndexToElasticSearch = false
+enableMinIO = false
