@@ -48,3 +48,8 @@ processImagesInPDFs = false
 # Cache parsed text of files in temp folder, if it is bigger than 10M chars,
 # so it can be reused in regex search and indexing, instead of parsing file content again. 
 storeTextCacheOnDisk = true
+
+# Number of chars of parsed text kept in memory per file, before moving it to a temp file.
+# It is only used if storeTextCacheOnDisk is enabled. Lower values use less heap per thread
+# (a char takes 2 bytes), but write more temp files.
+textCacheMaxMemoryChars = 10000000

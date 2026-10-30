@@ -30,7 +30,16 @@ public class TextCache implements Closeable, Cloneable {
 
     private static Logger logger = LoggerFactory.getLogger(TextCache.class);
 
-    private static int MAX_MEMORY_CHARS = 10000000;
+    public static final int DEFAULT_MAX_MEMORY_CHARS = 10000000;
+
+    // Chars kept in memory per text before it is moved to a temp file. It is only
+    // lowered below the default when the disk cache is enabled, otherwise the text
+    // beyond the limit would be lost.
+    private static volatile int maxMemoryChars = DEFAULT_MAX_MEMORY_CHARS;
+
+    public static void setMaxMemoryChars(int max) {
+        maxMemoryChars = max > 0 ? max : DEFAULT_MAX_MEMORY_CHARS;
+    }
 
     private IItem sourceItem;
     private StringBuilder sb = new StringBuilder();
@@ -54,6 +63,8 @@ public class TextCache implements Closeable, Cloneable {
     }
 
     public void write(char[] buf, int off, int len) throws IOException {
+        final int MAX_MEMORY_CHARS = diskCacheEnabled ? maxMemoryChars : DEFAULT_MAX_MEMORY_CHARS;
+
         if (tmp == null && sb != null && sb.length() + len > MAX_MEMORY_CHARS && diskCacheEnabled) {
             tmp = File.createTempFile("text", null);
             writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(tmp), StandardCharsets.UTF_8));

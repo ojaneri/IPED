@@ -772,6 +772,7 @@ public class ParsingTask extends ThumbTask implements EmbeddedDocumentExtractor 
 
         parsingConfig = configurationManager.findObject(ParsingTaskConfig.class);
         expandConfig = configurationManager.findObject(CategoryToExpandConfig.class);
+        TextCache.setMaxMemoryChars(parsingConfig.getTextCacheMaxMemoryChars());
 
         SplitLargeBinaryConfig splitConfig = configurationManager.findObject(SplitLargeBinaryConfig.class);
         minItemSizeToFragment = splitConfig.getMinItemSizeToFragment();

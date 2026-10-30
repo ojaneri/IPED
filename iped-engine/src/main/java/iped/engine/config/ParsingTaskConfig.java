@@ -24,6 +24,7 @@ public class ParsingTaskConfig extends AbstractTaskPropertiesConfig {
     private int timeOutPerMB = 2;
     private int minRawStringSize = 4;
     private boolean storeTextCacheOnDisk = true;
+    private int textCacheMaxMemoryChars = 10000000;
     private boolean sortPDFChars;
     private boolean processImagesInPDFs = false;
     private String phoneParsersToUse;
@@ -95,6 +96,11 @@ public class ParsingTaskConfig extends AbstractTaskPropertiesConfig {
             storeTextCacheOnDisk = Boolean.valueOf(value.trim());
         }
 
+        value = properties.getProperty("textCacheMaxMemoryChars"); //$NON-NLS-1$
+        if (value != null && !value.trim().isEmpty()) {
+            textCacheMaxMemoryChars = Integer.valueOf(value.trim());
+        }
+
         value = properties.getProperty("sortPDFChars"); //$NON-NLS-1$
         if (value != null) {
             sortPDFChars = Boolean.valueOf(value.trim());
@@ -147,6 +153,10 @@ public class ParsingTaskConfig extends AbstractTaskPropertiesConfig {
 
     public boolean isStoreTextCacheOnDisk() {
         return storeTextCacheOnDisk;
+    }
+
+    public int getTextCacheMaxMemoryChars() {
+        return textCacheMaxMemoryChars;
     }
 
     public boolean isSortPDFChars() {

@@ -1,2 +1,4 @@
 # Keep the cache of parsed text on disk when it is bigger than the in-memory limit.
 storeTextCacheOnDisk = true
+# Keep up to 1M chars (about 2MB) of text per file in memory, instead of 10M.
+textCacheMaxMemoryChars = 1000000
