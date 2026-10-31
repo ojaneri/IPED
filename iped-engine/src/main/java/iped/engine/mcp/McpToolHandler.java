@@ -155,6 +155,9 @@ public class McpToolHandler {
             return errorJson("No case opened. Call iped_open_case first.");
         }
         try {
+            if (id < 0 || id >= currentSource.getTotalItems()) {
+                return errorJson("Invalid item id: " + id);
+            }
             int luceneId = currentSource.getLuceneId(id);
             Document doc = currentSource.getReader().document(luceneId);
 
@@ -191,6 +194,9 @@ public class McpToolHandler {
             return errorJson("No case opened. Call iped_open_case first.");
         }
         try {
+            if (id < 0 || id >= currentSource.getTotalItems()) {
+                return errorJson("Invalid item id: " + id);
+            }
             if (offsetChars < 0) offsetChars = 0;
             if (maxChars <= 0) maxChars = 4000;
             if (maxChars > 20000) maxChars = 20000;
@@ -291,7 +297,13 @@ public class McpToolHandler {
             if (currentSource.getBookmarks() == null) {
                 return errorJson("Bookmarks not available in this case.");
             }
+            if (id < 0 || id >= currentSource.getTotalItems()) {
+                return errorJson("Invalid item id: " + id);
+            }
             int bookmarkId = currentSource.getBookmarks().getBookmarkId(bookmark);
+            if (bookmarkId == -1) {
+                bookmarkId = currentSource.getBookmarks().newBookmark(bookmark);
+            }
             currentSource.getBookmarks().addBookmark(Collections.singletonList(id), bookmarkId);
             currentSource.getBookmarks().saveState();
 
