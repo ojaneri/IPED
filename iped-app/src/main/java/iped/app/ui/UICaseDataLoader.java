@@ -112,7 +112,7 @@ public class UICaseDataLoader extends SwingWorker<Void, Integer> {
             }
 
             if (!updateItems) {
-                App.get().appGraphAnalytics.initGraphService();
+                // Graph database is lazily loaded when the graph tab is opened or used
 
                 LOGGER.info("Loading Columns"); //$NON-NLS-1$
                 App.get().resultsModel.initCols();

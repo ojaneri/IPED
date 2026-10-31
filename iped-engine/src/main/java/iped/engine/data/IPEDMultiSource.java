@@ -33,7 +33,7 @@ public class IPEDMultiSource extends IPEDSource {
 
     private static Logger LOGGER = LoggerFactory.getLogger(IPEDMultiSource.class);
 
-    private static ArrayList<Integer> baseDocCache = new ArrayList<Integer>();
+    private List<Integer> baseDocCache = new ArrayList<>();
 
     List<IPEDSource> cases = new ArrayList<>();
 
@@ -147,6 +147,7 @@ public class IPEDMultiSource extends IPEDSource {
         for (IPEDSource iCase : cases)
             totalItens += iCase.totalItens;
 
+        baseDocCache.clear();
         for (IIPEDSource iCase : cases)
             baseDocCache.add(getBaseLuceneId(iCase));
 

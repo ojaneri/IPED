@@ -20,7 +20,14 @@ no push, PR or any remote action without an explicit OK.
    - `UfedXmlReader`: `ParentInfo` replaces `IItem` in `pathToParent`; clears maps on read completion.
    - `ParsingTask`: clears `idToItemMap` in `safeProcess()` finally block.
    - `Bootstrap` & `BootstrapUI`: configurable heap factor (`-Diped.heapFactor`) and max heap MB (`-Diped.maxHeapMB`); adds G1 memory reclamation flags (`MinHeapFreeRatio`, `MaxHeapFreeRatio`, `ReservedCodeCacheSize`, `MaxMetaspaceSize`, `UseStringDeduplication`).
-5. Later commits: see `git log lite`.
+5. Etapa 4 (UI analysis optimizations):
+   - `AppGraphAnalytics` & `UICaseDataLoader`: Neo4j embedded graph service starts lazily on demand when the graph tab is opened or used instead of at case load.
+   - `TimelineResults`: eliminated 128 MB fixed array allocation (`new int[Short.MAX_VALUE][1024]`), dynamic row sizing and fast array reset.
+   - `IPEDMultiSource`: `baseDocCache` converted from static leak to instance field.
+6. Etapa 5 (AI Agent MCP Server):
+   - Native stdio JSON-RPC MCP server (`iped.engine.mcp.McpServer` and `McpToolHandler`) with 10 tools: `iped_open_case`, `iped_list_cases`, `iped_search` (paginated), `iped_get_item`, `iped_get_text`, `iped_categories`, `iped_bookmarks_list`, `iped_bookmarks_add`, `iped_process`, `iped_process_status`.
+   - Complete unit test suite (`McpServerTest`) and live integration verified against processed cases.
+7. Later commits: see `git log lite`.
 
 Tests added: `TextCacheTest`, `HashIndexTest`; `DuplicateTaskTest` adapted. Run with
 `mvn -o -pl iped-engine test -Dtest=...` using Maven at `C:\tools\apache-maven-3.9.9` and

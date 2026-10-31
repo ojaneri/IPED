@@ -47,9 +47,8 @@ public class TimelineResults {
         ArrayList<IItemId> ids = new ArrayList<>();
         ArrayList<Float> scores = new ArrayList<>();
         int[] eventOrd = new int[Short.MAX_VALUE];
-        int[] blankEventOrd = new int[eventOrd.length];
-        Arrays.fill(blankEventOrd, -1);
-        int[][] eventsInDocOrds = new int[Short.MAX_VALUE][MAX_TIMESTAMPS_PER_PROPERTY];
+        Arrays.fill(eventOrd, -1);
+        int[][] eventsInDocOrds = new int[16][];
         int idx = 0;
         for (IItemId id : items.getIterator()) {
             int luceneId = ipedCase.getLuceneId(id);
@@ -57,19 +56,27 @@ public class TimelineResults {
             if (eventsInDocStr.isEmpty()) {
                 continue;
             }
-            loadOrdsFromString(eventsInDocStr, eventsInDocOrds);
+            eventsInDocOrds = loadOrdsFromString(eventsInDocStr, eventsInDocOrds);
             boolean tsvAdv = timeStampValues.advanceExact(luceneId);
             boolean tegvAdv = timeEventGroupValues.advanceExact(luceneId);
 
             long ord;
             short pos = 0;
-            System.arraycopy(blankEventOrd, 0, eventOrd, 0, eventOrd.length);
+            int maxK = 0;
             while (tegvAdv && (ord = timeEventGroupValues.nextOrd()) != SortedSetDocValues.NO_MORE_ORDS) {
+                if (pos >= eventsInDocOrds.length || eventsInDocOrds[pos] == null) {
+                    break;
+                }
                 for (int k : eventsInDocOrds[pos++]) {
                     if (k == -1) {
                         break;
                     }
-                    eventOrd[k] = (int) ord;
+                    if (k < eventOrd.length) {
+                        eventOrd[k] = (int) ord;
+                        if (k >= maxK) {
+                            maxK = k + 1;
+                        }
+                    }
                 }
             }
             pos = 0;
@@ -77,11 +84,14 @@ public class TimelineResults {
                 if (ord > Integer.MAX_VALUE) {
                     throw new RuntimeException("Integer overflow when converting timestamp ord to int");
                 }
-                if (eventOrd[pos] != -1) {
+                if (pos < eventOrd.length && eventOrd[pos] != -1) {
                     ids.add(new TimeItemId(this, id.getSourceId(), id.getId(), (int) ord, eventOrd[pos]));
                     scores.add(items.getScore(idx));
                 }
                 pos++;
+            }
+            if (maxK > 0) {
+                Arrays.fill(eventOrd, 0, Math.min(maxK, eventOrd.length), -1);
             }
             idx++;
         }
@@ -89,17 +99,35 @@ public class TimelineResults {
 
     }
 
-    private static final void loadOrdsFromString(String string, int[][] ret) {
+    private static final int[][] loadOrdsFromString(String string, int[][] ret) {
         int len = string.length();
+        int count = 1;
+        for (int i = 0; i < len; i++) {
+            if (string.charAt(i) == IndexItem.EVENT_IDX_SEPARATOR) {
+                count++;
+            }
+        }
+        if (ret == null || ret.length < count) {
+            int[][] newRet = new int[Math.max(count, ret == null ? 16 : ret.length * 2)][];
+            if (ret != null) {
+                System.arraycopy(ret, 0, newRet, 0, ret.length);
+            }
+            ret = newRet;
+        }
         int i = 0, j = 0, k = 0;
         do {
             j = string.indexOf(IndexItem.EVENT_IDX_SEPARATOR, i);
             if (j == -1) {
                 j = len;
             }
-            loadOrdsFromStringInner(string.substring(i, j), j - i, ret[k++]);
+            if (ret[k] == null) {
+                ret[k] = new int[MAX_TIMESTAMPS_PER_PROPERTY];
+            }
+            loadOrdsFromStringInner(string.substring(i, j), j - i, ret[k]);
+            k++;
             i = j + 1;
         } while (j < len);
+        return ret;
     }
 
     private static final void loadOrdsFromStringInner(String string, int len, int[] ret) {

@@ -186,13 +186,28 @@ public class AppGraphAnalytics extends JPanel implements ClearFilterListener {
         this.toolBar = new GraphToolBar(this);
         this.graphPane.getHistory().addListener(toolBar);
         add(this.toolBar, BorderLayout.NORTH);
+
+        this.addHierarchyListener(new java.awt.event.HierarchyListener() {
+            @Override
+            public void hierarchyChanged(java.awt.event.HierarchyEvent e) {
+                if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0 && isShowing()) {
+                    initGraphService();
+                }
+            }
+        });
     }
 
-    public void initGraphService() {
-        new LoadGraphDatabaseWorker(this).execute();
+    private boolean graphInitialized = false;
+
+    public synchronized void initGraphService() {
+        if (!graphInitialized) {
+            graphInitialized = true;
+            new LoadGraphDatabaseWorker(this).execute();
+        }
     }
 
     public void addEvidenceFilesToGraph(Collection<ItemId> items) {
+        initGraphService();
         if (!items.isEmpty()) {
             String[] ids = items.stream().map(s -> Integer.toString(s.getId())).collect(Collectors.toList())
                     .toArray(new String[items.size()]);
@@ -201,6 +216,7 @@ public class AppGraphAnalytics extends JPanel implements ClearFilterListener {
     }
 
     public AddNodeWorker addNodesToGraph(Collection<Long> ids) {
+        initGraphService();
         if (!ids.isEmpty()) {
             AddNodeWorker worker = new AddNodeWorker(this, ids);
             worker.execute();
@@ -210,6 +226,7 @@ public class AppGraphAnalytics extends JPanel implements ClearFilterListener {
     }
 
     public void addRelationshipsToGraph(Collection<Long> ids) {
+        initGraphService();
         if (!ids.isEmpty()) {
             new AddRelationshipWorker(this, ids).execute();
         }
