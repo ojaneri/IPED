@@ -63,3 +63,13 @@ with other runs because both ran together, and the memory peaks are nearly equal
 Item differences (compared by TrackId, no names printed): 5 items only in C (one 25 MB email, two PDFs
 of 8 and 10 MB, one small png, one small doc) and 1 item only in B (a 37 KB email). Not explained yet,
 see the repeat below. The runs had no log file (`--nologfile`), so errors were not captured.
+
+### Repeat of the `master` engine run alone (mboxB800b)
+
+Same command as mboxB800 but running alone: it ended after 163 s (peak private 1,995 MB) **without
+producing `FileList.csv`** (output folder 1.2 GB instead of 5.8 GB), so it failed part way. There is no log
+(`--nologfile`) and the script does not keep stdout, so the cause is unknown; an out of memory error at
+800 MB is the first suspect. The two earlier runs of this size succeeded when run together, so the
+failure may depend on timing. Started a rerun with stdout captured (`diag-mboxB800c.out` in
+`D:\iped-bench`) at 21:48 to find the error. Open question: does the `lite` engine fail the same way when
+run alone? (Not tested yet.)

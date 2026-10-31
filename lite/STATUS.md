@@ -49,6 +49,15 @@ engines at the same time, lite profile, `-Xmx800m`:
   comparable with each other, only the memory peaks and whether each one finishes.
 - The outputs of the earlier UFDR runs were deleted (numbers are in `RESULTS.md`).
 
+## Open issue found at the end of the session
+
+The `master` engine run alone on the mbox (`-Xmx800m`, lite profile) stopped after 163 s without a
+`FileList.csv` (details at the end of `RESULTS.md`). Tomorrow: read `D:\iped-bench\diag-mboxB800c.out` (a rerun
+with stdout captured; may be partial if the machine was shut down), then run the `lite` engine alone with
+the same command and stdout captured. This is the experiment that decides if the code changes help at tight
+heap. Run with `java -jar iped.jar -d <mbox> -o <new out> --nogui -profile lite -Xmx800m` from the release
+folder, without `--nologfile`.
+
 ## Next steps (in order)
 
 1. **Better corpus.** The tests so far use one small UFDR. The code changes need many items and big
