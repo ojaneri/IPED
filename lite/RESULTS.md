@@ -29,6 +29,7 @@ shows with a small `-Xmx` (next section).
 | Run | Heap | Result | Time | Peak private (tree) | Peak single process | Items |
 |---|---|---|---|---|---|---|
 | A1g | 1 GB | **refused to start** | 6 s | - | - | - |
+| A2500 | 2,500 MB | ok (12 threads, default profile) | 81 s | 2,817 MB | 1,816 MB | 5,822 |
 | B1g | 1 GB | ok | 40 s | 1,770 MB | 1,345 MB | 5,822 |
 | C1g | 1 GB | ok | 43 s | 1,914 MB | 1,482 MB | 5,822 |
 | B800 | 800 MB | ok | 40 s | 1,765 MB | 1,334 MB | 5,822 |
@@ -37,6 +38,8 @@ shows with a small `-Xmx` (next section).
 - **A1g** stops with "Insufficient heap memory available: less than 200MB per processing thread"
   (`Statistics.java:408-417`). With `numThreads = default` the baseline uses 12 threads here, so the
   smallest heap it accepts is 12 x 200 MB = 2,400 MB. The lite profile uses 4 threads (800 MB minimum).
+- Fair comparison at the smallest heap each setup accepts: default profile at 2,500 MB peaks at
+  2,817 MB (tree) in 81 s; lite profile at 800 MB peaks at 1,765 MB in 40 s. Same 5,822 items.
 - The peak of the lite runs barely changes between 1 GB and 800 MB, and the largest process stays
   around 1.3 GB, so about 500 MB of the process is outside the Java heap (metaspace, code cache,
   thread stacks, native libraries). That is the part Etapa 2 (JVM flags) and Etapa 6 (smaller
