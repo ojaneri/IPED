@@ -86,3 +86,12 @@ for both engines. The dumps were moved to `D:\iped-bench\dumps` (they contain ca
 after analysis). Next: repeat both engines alone with a heap where they do not run out of memory (try
 1500 MB and 2000 MB) and look for the smallest heap at which each engine finishes without an OOM, which
 is the number that shows whether the code changes help.
+
+### Rerun of the `master` engine alone, 800 MB, stdout captured (mboxB800c, 21:47 to 21:57)
+
+Finished with **26,710 items** and printed `java.lang.OutOfMemoryError: Java heap space` in two parsing
+threads (`ParsingReader$BackgroundParsing`, while parsing two docx attachments of 0.4 MB and 4 MB). So
+the item count changes from run to run at this heap (26,705 / 26,709 / 26,710) because items fail to
+parse when memory runs out. The earlier alone run that stopped after 163 s without `FileList.csv`
+(mboxB800b) is still unexplained. The runs at 1500 MB (master and lite, started 21:48) were still going at
+21:57.
