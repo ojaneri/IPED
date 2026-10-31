@@ -73,3 +73,16 @@ producing `FileList.csv`** (output folder 1.2 GB instead of 5.8 GB), so it faile
 failure may depend on timing. Started a rerun with stdout captured (`diag-mboxB800c.out` in
 `D:\iped-bench`) at 21:48 to find the error. Open question: does the `lite` engine fail the same way when
 run alone? (Not tested yet.)
+
+### Correction: the 800 MB mbox runs did hit OutOfMemoryError
+
+Three heap dumps (`java_pid*.hprof`, 470 to 530 MB, written by the `-XX:+HeapDumpOnOutOfMemoryError`
+flag that Bootstrap sets) appeared at 21:34, 21:37 and 21:46, i.e. during the two concurrent mbox runs
+(one dump each, most likely, but which dump belongs to which run was not checked) and during the failed
+repeat. So the statement above that both runs "finished with only 800 MB" is too strong: they finished,
+but with at least one out of memory error each, and that probably explains the few items that differ
+(large emails and PDFs are on the list). 800 MB is therefore too small for this input with 4 threads,
+for both engines. The dumps were moved to `D:\iped-bench\dumps` (they contain case data; delete them
+after analysis). Next: repeat both engines alone with a heap where they do not run out of memory (try
+1500 MB and 2000 MB) and look for the smallest heap at which each engine finishes without an OOM, which
+is the number that shows whether the code changes help.

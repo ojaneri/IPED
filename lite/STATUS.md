@@ -58,6 +58,11 @@ the same command and stdout captured. This is the experiment that decides if the
 heap. Run with `java -jar iped.jar -d <mbox> -o <new out> --nogui -profile lite -Xmx800m` from the release
 folder, without `--nologfile`.
 
+Update 21:50: heap dumps (`java_pid*.hprof`, now in `D:\iped-bench\dumps`, delete after use) show that
+the 800 MB mbox runs had OutOfMemory errors, even the ones that "finished". So the mbox needs a larger
+heap; plan: find the smallest `-Xmx` (1500, 2000 MB) at which each engine finishes with no OOM and the same
+item count. Always check for new `java_pid*.hprof` after a run (they are written to the current folder).
+
 ## Next steps (in order)
 
 1. **Better corpus.** The tests so far use one small UFDR. The code changes need many items and big
