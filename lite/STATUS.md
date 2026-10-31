@@ -36,6 +36,19 @@ Bench environment (outside the repo, can be deleted):
 - To refresh `rel-lite` after code changes: `mvn -o -q -pl iped-engine package -DskipTests`, then copy
   `iped-engine\target\iped-engine-4.4.0-SNAPSHOT.jar` into `D:\iped-bench\rel-lite\lib\`.
 
+## Last thing started (2026-10-30 21:32)
+
+The user left the choice of the larger input to me, so I started the 4.7 GB `.mbox` (path kept in
+`D:\iped-bench\mbox-path.txt`, not printed here because it contains personal addresses) with both
+engines at the same time, lite profile, `-Xmx800m`:
+
+- `D:\iped-bench\out-mboxB800` (master engine) and `out-mboxC800` (lite engine), summaries in
+  `run-mboxB800.log` and `run-mboxC800.log`, memory curves in `out-mbox*.memory.csv`.
+- If the machine was shut down while they ran, those output folders are partial: delete them before
+  repeating (the script refuses an existing output folder). Times of the two concurrent runs are not
+  comparable with each other, only the memory peaks and whether each one finishes.
+- The outputs of the earlier UFDR runs were deleted (numbers are in `RESULTS.md`).
+
 ## Next steps (in order)
 
 1. **Better corpus.** The tests so far use one small UFDR. The code changes need many items and big
