@@ -49,3 +49,17 @@ shows with a small `-Xmx` (next section).
   extracted texts (a big PST, a disk image, or a folder with many documents).
 - The 200 MB per thread check also means that for an 8 GB machine the thread count, not the profile,
   decides the minimum heap.
+
+## Larger input: 4.7 GB mbox (lite profile, `-Xmx800m`, two runs at the same time)
+
+| Run | Engine | Time | Peak private (tree) | Peak working set (tree) | Peak single process | Items |
+|---|---|---|---|---|---|---|
+| mboxB800 | `master` | 659 s | 2,127 MB | 1,831 MB | 1,699 MB | 26,705 |
+| mboxC800 | `lite` branch | 662 s | 2,122 MB | 1,826 MB | 1,698 MB | 26,709 |
+
+Both finished with only 800 MB of Java heap. Output size 5.8 GB each. The times are not comparable
+with other runs because both ran together, and the memory peaks are nearly equal.
+
+Item differences (compared by TrackId, no names printed): 5 items only in C (one 25 MB email, two PDFs
+of 8 and 10 MB, one small png, one small doc) and 1 item only in B (a 37 KB email). Not explained yet,
+see the repeat below. The runs had no log file (`--nologfile`), so errors were not captured.
