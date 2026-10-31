@@ -127,11 +127,46 @@ public class SleuthkitReader extends DataSourceReader {
     private CmdLineArgs args;
     private Long firstId, lastId;
 
-    private ArrayList<Integer> sleuthIdToId = new ArrayList<Integer>();
+    private static class CompactIntArray {
+        private int[] data = new int[1024];
+        private int size = 0;
+
+        CompactIntArray() {
+            java.util.Arrays.fill(data, -1);
+        }
+
+        public void set(int index, int value) {
+            if (index >= data.length) {
+                int newCap = Math.max(index + 1, data.length * 2);
+                int oldLen = data.length;
+                data = java.util.Arrays.copyOf(data, newCap);
+                java.util.Arrays.fill(data, oldLen, newCap, -1);
+            }
+            data[index] = value;
+            if (index >= size) {
+                size = index + 1;
+            }
+        }
+
+        public int get(int index) {
+            if (index < 0 || index >= data.length) {
+                return -1;
+            }
+            return data[index];
+        }
+
+        public void clear() {
+            data = new int[1024];
+            java.util.Arrays.fill(data, -1);
+            size = 0;
+        }
+    }
+
+    private CompactIntArray sleuthIdToId = new CompactIntArray();
 
     // chamada content.getParent() é custosa, entao os valores já mapeados são
     // salvos neste cache
-    private ArrayList<Integer> tskParentIds = new ArrayList<>();
+    private CompactIntArray tskParentIds = new CompactIntArray();
 
     private List<Integer> inheritedParents;
     private String inheritedPath;
@@ -329,6 +364,7 @@ public class SleuthkitReader extends DataSourceReader {
         lastId = null;
         sleuthIdToId.clear();
         tskParentIds.clear();
+        idTotrackIDMap.clear();
 
         deviceName = getEvidenceName(image);
         if (parent == null) {
@@ -444,6 +480,9 @@ public class SleuthkitReader extends DataSourceReader {
         } else if (addImageFuture.get(image) != null)
             addImageFuture.get(image).get();
 
+        sleuthIdToId.clear();
+        tskParentIds.clear();
+        idTotrackIDMap.clear();
     }
     
     /**
@@ -705,9 +744,6 @@ public class SleuthkitReader extends DataSourceReader {
 
         IItem item = addContentAndGetItem(content);
         if (item != null) {
-            while (content.getId() - firstId >= sleuthIdToId.size()) {
-                sleuthIdToId.add(null);
-            }
             sleuthIdToId.set((int) (content.getId() - firstId), item.getId());
         }
     }
@@ -752,8 +788,8 @@ public class SleuthkitReader extends DataSourceReader {
     }
 
     private Integer getTskParentId(long id) throws TskCoreException, SQLException {
-        Integer parent = tskParentIds.get((int) id);
-        if (parent == null)
+        int parent = tskParentIds.get((int) id);
+        if (parent == -1)
             throw new IPEDException("No parent found for tsk objectId " + id);
         return parent;
     }
@@ -771,9 +807,6 @@ public class SleuthkitReader extends DataSourceReader {
             while (rs.next()) {
                 long objId = rs.getLong(1);
                 long parId = rs.getLong(2);
-                while (objId >= tskParentIds.size())
-                    tskParentIds.add(null);
-
                 tskParentIds.set((int) objId, (int) parId);
                 if (parId > objId) {
                     throw new IPEDException(
@@ -927,7 +960,8 @@ public class SleuthkitReader extends DataSourceReader {
         boolean first = true;
         Integer tskId = (int) absFile.getId();
         while ((tskId = getTskParentId(tskId)) != 0) {
-            Integer parentId = sleuthIdToId.get(tskId - firstId.intValue());
+            int pid = sleuthIdToId.get(tskId - firstId.intValue());
+            Integer parentId = pid == -1 ? null : pid;
             if (first) {
                 evidence.setParentId(parentId);
                 first = false;
@@ -1079,7 +1113,8 @@ public class SleuthkitReader extends DataSourceReader {
         boolean first = true;
         Integer tskId = (int) content.getId();
         while ((tskId = getTskParentId(tskId)) != 0) {
-            Integer parentId = sleuthIdToId.get(tskId - firstId.intValue());
+            int pid = sleuthIdToId.get(tskId - firstId.intValue());
+            Integer parentId = pid == -1 ? null : pid;
             if (first) {
                 evidence.setParentId(parentId);
                 first = false;

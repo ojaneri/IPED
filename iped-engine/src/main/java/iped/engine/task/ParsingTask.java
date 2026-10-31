@@ -423,6 +423,7 @@ public class ParsingTask extends ThumbTask implements EmbeddedDocumentExtractor 
                 evidence.setExtraAttribute(NUM_SUBITEMS, numSubitems);
             }
             handleMetadata(evidence);
+            idToItemMap.clear();
         }
 
     }

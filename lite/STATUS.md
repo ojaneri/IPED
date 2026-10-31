@@ -13,7 +13,14 @@ no push, PR or any remote action without an explicit OK.
 2. `483e0123b` `textCacheMaxMemoryChars` (ParsingTaskConfig), used by `TextCache`; lite uses 1M chars.
 3. `9dfcf3358` `HashIndex` (compact hash set) replaces the HashMap in `DuplicateTask`; `ExportFileTask`
    uses 4096 fixed locks chosen from the hash instead of one object per hash.
-4. Later commits: see `git log lite`.
+4. Etapa 2 & 3 memory improvements:
+   - `ProcessingQueues`: backpressure when `getTotalQueueSize() >= maxQueueSize` for priority 0 items.
+   - `Statistics`: `minMemPerThread` defaults to 150 MB under `lite` profile (or `-Diped.minMemPerThread`).
+   - `SleuthkitReader`: primitive `CompactIntArray` replaces `ArrayList<Integer>` for `sleuthIdToId` and `tskParentIds`; clears structures and `idTotrackIDMap` after image read.
+   - `UfedXmlReader`: `ParentInfo` replaces `IItem` in `pathToParent`; clears maps on read completion.
+   - `ParsingTask`: clears `idToItemMap` in `safeProcess()` finally block.
+   - `Bootstrap` & `BootstrapUI`: configurable heap factor (`-Diped.heapFactor`) and max heap MB (`-Diped.maxHeapMB`); adds G1 memory reclamation flags (`MinHeapFreeRatio`, `MaxHeapFreeRatio`, `ReservedCodeCacheSize`, `MaxMetaspaceSize`, `UseStringDeduplication`).
+5. Later commits: see `git log lite`.
 
 Tests added: `TextCacheTest`, `HashIndexTest`; `DuplicateTaskTest` adapted. Run with
 `mvn -o -pl iped-engine test -Dtest=...` using Maven at `C:\tools\apache-maven-3.9.9` and

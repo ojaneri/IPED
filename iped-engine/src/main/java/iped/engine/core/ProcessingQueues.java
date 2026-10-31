@@ -118,7 +118,7 @@ public class ProcessingQueues {
                 Thread.sleep(1000);
             }
             synchronized (this) {
-                if (blockIfFull && queuePriority == 0 && q1.size() + q2.size() >= maxQueueSize) {
+                if (blockIfFull && queuePriority == 0 && getTotalQueueSize() >= maxQueueSize) {
                     sleep = true;
                     continue;
                 } else {
@@ -177,6 +177,17 @@ public class ProcessingQueues {
 
     public synchronized IItem peekItemFromCurrentQueue() {
         return getItemQueueTop().isEmpty() ? getItemQueueRest().get(0) : getItemQueueTop().peekFirst();
+    }
+
+    public synchronized int getTotalQueueSize() {
+        int total = 0;
+        for (LinkedList<IItem> q : queuesTop.values()) {
+            total += q.size();
+        }
+        for (ArrayList<IItem> q : queuesRest.values()) {
+            total += q.size();
+        }
+        return total;
     }
 
     public synchronized int getCurrentQueueSize() {

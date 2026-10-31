@@ -26,6 +26,14 @@ public class BootstrapUI extends Bootstrap {
 
     @Override
     protected float getRAMToHeapFactor() {
+        String factorProp = System.getProperty("iped.heapFactor");
+        if (factorProp != null) {
+            try {
+                return Float.parseFloat(factorProp);
+            } catch (NumberFormatException e) {
+                // ignore
+            }
+        }
         return 0.5f;
     }
 

@@ -86,6 +86,7 @@ import iped.parsers.ufed.model.Chat;
 import iped.parsers.util.MetadataUtil;
 import iped.parsers.util.PhoneParsingConfig;
 import iped.parsers.whatsapp.WhatsAppParser;
+import iped.engine.util.ParentInfo;
 import iped.properties.ExtraProperties;
 import iped.properties.MediaTypes;
 import iped.utils.FileInputStreamFactory;
@@ -143,7 +144,7 @@ public class UfedXmlReader extends DataSourceReader {
     FileInputStreamFactory fisf, previewFisf;
     IItem rootItem;
     IItem decodedFolder;
-    HashMap<String, IItem> pathToParent = new HashMap<>();
+    HashMap<String, ParentInfo> pathToParent = new HashMap<>();
     boolean ignoreSupportedChats = false;
     HashMap<String, String> ufdrPathToUfedId = new HashMap<>();
     HashMap<String, String> ufedFileIdToLocalPath = new HashMap<>();    // used to replace non-existent attachment extracted path by local path
@@ -290,6 +291,9 @@ public class UfedXmlReader extends DataSourceReader {
             xmlReader.parse(new InputSource(new UFEDXMLWrapper(xmlStream)));
         } finally {
             IOUtil.closeQuietly(xmlStream);
+            pathToParent.clear();
+            ufdrPathToUfedId.clear();
+            ufedFileIdToLocalPath.clear();
         }
     }
 
@@ -380,7 +384,7 @@ public class UfedXmlReader extends DataSourceReader {
         }
         rootItem.setExtraAttribute(ExtraProperties.DATASOURCE_READER, this.getClass().getSimpleName());
 
-        pathToParent.put(rootItem.getPath(), rootItem);
+        pathToParent.put(rootItem.getPath(), new ParentInfo(rootItem));
 
         caseData.incDiscoveredEvidences(1);
         Manager.getInstance().addItemToQueue(rootItem);
@@ -401,7 +405,7 @@ public class UfedXmlReader extends DataSourceReader {
         decodedFolder.setHash(""); //$NON-NLS-1$
         decodedFolder.setExtraAttribute(ExtraProperties.DATASOURCE_READER, UfedXmlReader.class.getSimpleName());
 
-        pathToParent.put(decodedFolder.getPath(), decodedFolder);
+        pathToParent.put(decodedFolder.getPath(), new ParentInfo(decodedFolder));
 
         caseData.incDiscoveredEvidences(1);
         Manager.getInstance().addItemToQueue(decodedFolder);
@@ -558,37 +562,37 @@ public class UfedXmlReader extends DataSourceReader {
 
         }
 
-        private IItem getParent(String path) throws SAXException {
+        private ParentInfo getParent(String path) throws SAXException {
             int idx = path.lastIndexOf('/');
             if (idx < 1)
-                return rootItem;
+                return new ParentInfo(rootItem);
 
             String parentPath = path.substring(0, idx);
-            IItem parent = pathToParent.get(parentPath);
+            ParentInfo parent = pathToParent.get(parentPath);
             if (parent != null)
                 return parent;
 
-            parent = new Item();
-            parent.setName(parentPath.substring(parentPath.lastIndexOf('/') + 1));
-            parent.setPath(parentPath);
-            parent.setHasChildren(true);
-            parent.setIsDir(true);
-            // parent.setLength(0L);
-            parent.setHash(""); //$NON-NLS-1$
-            parent.setIdInDataSource("");
-            parent.setParent(getParent(parentPath));
-            parent.setExtraAttribute(ExtraProperties.DATASOURCE_READER, UfedXmlReader.class.getSimpleName());
-
-            pathToParent.put(parentPath, parent);
+            Item newParent = new Item();
+            newParent.setName(parentPath.substring(parentPath.lastIndexOf('/') + 1));
+            newParent.setPath(parentPath);
+            newParent.setHasChildren(true);
+            newParent.setIsDir(true);
+            // newParent.setLength(0L);
+            newParent.setHash(""); //$NON-NLS-1$
+            newParent.setIdInDataSource("");
+            newParent.setParent(getParent(parentPath));
+            newParent.setExtraAttribute(ExtraProperties.DATASOURCE_READER, UfedXmlReader.class.getSimpleName());
 
             try {
                 caseData.incDiscoveredEvidences(1);
-                Manager.getInstance().addItemToQueue(parent);
+                Manager.getInstance().addItemToQueue(newParent);
 
             } catch (InterruptedException e) {
                 throw new SAXException(e);
             }
 
+            parent = new ParentInfo(newParent);
+            pathToParent.put(parentPath, parent);
             return parent;
         }
 

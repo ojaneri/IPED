@@ -405,11 +405,12 @@ public class Statistics {
 
         LOGGER.info("Java Command: {}", System.getProperty("sun.java.command"));
 
-        int minMemPerThread = 200;
+        CmdLineArgs cmdArgs = (CmdLineArgs) caseData.getCaseObject(CmdLineArgs.class.getName());
+        int defaultMinMem = (cmdArgs != null && "lite".equalsIgnoreCase(cmdArgs.getProfile())) ? 150 : 200;
+        int minMemPerThread = Integer.getInteger("iped.minMemPerThread", defaultMinMem);
         if (maxMemory / localConfig.getNumThreads() < minMemPerThread) {
             String memoryAlert = Messages.getString("Statistics.LowMemory.Msg").replace("{}", //$NON-NLS-1$
                     Integer.toString(minMemPerThread));
-            CmdLineArgs cmdArgs = (CmdLineArgs) caseData.getCaseObject(CmdLineArgs.class.getName());
             if (!cmdArgs.isNogui()) {
                 JOptionPane.showMessageDialog(null, memoryAlert, Messages.getString("Statistics.LowMemory.Title"), //$NON-NLS-1$
                         JOptionPane.WARNING_MESSAGE);

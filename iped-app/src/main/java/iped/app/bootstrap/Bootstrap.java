@@ -68,6 +68,14 @@ public class Bootstrap {
     }
 
     protected float getRAMToHeapFactor() {
+        String factorProp = System.getProperty("iped.heapFactor");
+        if (factorProp != null) {
+            try {
+                return Float.parseFloat(factorProp);
+            } catch (NumberFormatException e) {
+                // ignore
+            }
+        }
         return 0.25f;
     }
 
@@ -117,8 +125,9 @@ public class Bootstrap {
         }
 
         if (!XmxDefined) {
-            // if -Xmx is not specified, set it, up to 32500MB
-            long memSize = Math.min((long) (physicalMemory * getRAMToHeapFactor()), 32500L * 1024 * 1024);
+            long maxHeapCap = Long.getLong("iped.maxHeapMB", 32500L) * 1024 * 1024;
+            // if -Xmx is not specified, set it, up to maxHeapCap
+            long memSize = Math.min((long) (physicalMemory * getRAMToHeapFactor()), maxHeapCap);
             heapArgs.add("-Xmx" + (memSize / (1024 * 1024)) + "M");
         }
 
@@ -231,6 +240,11 @@ public class Bootstrap {
     private static List<String> getCustomJVMArgs(){
         return Arrays.asList("-XX:+IgnoreUnrecognizedVMOptions",
                 "-XX:+HeapDumpOnOutOfMemoryError",
+                "-XX:MinHeapFreeRatio=10",
+                "-XX:MaxHeapFreeRatio=30",
+                "-XX:ReservedCodeCacheSize=128m",
+                "-XX:MaxMetaspaceSize=384m",
+                "-XX:+UseStringDeduplication",
                 "--add-opens=java.base/java.util=ALL-UNNAMED",
                 "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
                 "--add-opens=java.base/java.lang=ALL-UNNAMED",

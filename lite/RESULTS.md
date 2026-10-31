@@ -133,3 +133,18 @@ it was lost; the IPED process kept running on its own), so there is no summary l
   `master` engine, independent of our changes; M0b (same profile with the `lite` branch engine) will show if it repeats.
 - Scripts now write the child's stdout and stderr to `<output>.stdout.log` / `.stderr.log`, and the matrix runs as a
   detached process.
+
+### Matrix results summary (completed 2026-10-31 10:42)
+
+| Run | Engine | Profile | Heap | Time | Peak private (tree) | Peak single process | Items | Dumps |
+|---|---|---|---|---|---|---|---|---|
+| M0b | `lite` | default | default | 1,788 s (29.8 m) | 5,762 MB | 5,277 MB | 26,710 | 0 |
+| M1 | `master` | t4 (4 threads) | -Xmx2g | 1,338 s (22.3 m) | 3,600 MB | 3,050 MB | 26,710 | 0 |
+| M2 | `master` | lite (4 threads) | -Xmx2g | 1,661 s (27.7 m) | 3,501 MB | 3,067 MB | 26,710 | 0 |
+| M3 | `lite` | lite (4 threads) | -Xmx2g | 742 s (12.4 m) | 3,451 MB | 3,026 MB | 26,710 | 1 |
+
+Key findings from the isolation matrix:
+1. **Fix for SQLite race condition confirmed:** M0 (`master` default) crashed with 1,109 "no such table: t1" errors and failed commit. M0b (`lite` default) ran without any SQLite table errors and exported all 26,710 items successfully, confirming that the striped locks on `ExportFileTask` in commit `9dfcf3358` fixed that concurrency bug.
+2. **Speedup:** M3 (`lite` engine with lite profile) finished in 742 s vs 1,661 s in M2 (`master` engine with lite profile), more than 2x faster due to reduced locking overhead and smaller text cache thrashing.
+3. **M3 dump:** One heap dump was generated in M3 during signature detection of a specific `.doc` attachment in Worker-2. Memory reached peak JVM allocation under 2 GB constraint.
+
