@@ -63,6 +63,12 @@ the 800 MB mbox runs had OutOfMemory errors, even the ones that "finished". So t
 heap; plan: find the smallest `-Xmx` (1500, 2000 MB) at which each engine finishes with no OOM and the same
 item count. Always check for new `java_pid*.hprof` after a run (they are written to the current folder).
 
+Started at 21:48 (outside the measuring script, stdout in `D:\iped-bench\diag-mbox*.out`): `out-mboxB1500` and
+`out-mboxC1500` (master and lite engines, `-Xmx1500m`, lite profile, run together) plus the earlier
+`out-mboxB800c` (master, 800 MB, alone). If the machine shut down, all three are partial: check for
+`FileList.csv` in each, delete partial folders and repeat. Heap dumps of these runs land in
+`D:\iped-bench\dumps` (the 1500 runs) or in `D:\IPED` (B800c).
+
 ## Next steps (in order)
 
 1. **Better corpus.** The tests so far use one small UFDR. The code changes need many items and big
