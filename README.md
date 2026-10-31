@@ -1,113 +1,143 @@
-# IPED Digital Forensic Tool
+# IPED Lite
 
-IPED is an open source software that can be used to process and analyze digital evidence, often seized at crime scenes by law enforcement or in a corporate investigation by private examiners.
+**IPED Lite** is a lightweight, resource-optimized distribution of the [IPED Digital Forensic Tool](https://github.com/sepinf-inc/IPED), featuring an ultra-low memory footprint and a native **Model Context Protocol (MCP)** server for autonomous AI agent integration.
 
-## History
+It is designed to run efficiently on commodity workstations and laptops with limited memory (such as 8 GB RAM machines, operating under a strict ≤ 3 GB JVM heap limit), while enabling AI agents to programmatically query, inspect, and tag forensic evidence via standard stdio JSON-RPC.
 
-IPED - Digital Evidence Processor and Indexer (translated from Portuguese) is a tool implemented in java and originally and still developed by digital forensic experts from Brazilian Federal Police since 2012. Although it was always open source, only in 2019 its code was officially published.
+---
 
-Since the beginning, the goal of the tool was efficient data processing and stability. Some key characteristics of the tool are:
+## Key Differences from Standard IPED
 
-- Command line data processing for batch case creation
-- Multiplatform support, tested on Windows and Linux systems
-- Portable cases without installation, you can run them from removable drives
-- Integrated and intuitive analysis interface
-- High multithread performance and support for large cases: up to 400GB/h processing speed using modern hardware and 135 million items in a (multi) case as of 12/12/2019
+### 1. Memory Optimization & Stability (≤ 3 GB Heap Profile)
+Standard forensic indexers can quickly exhaust memory on deep container extractions or large email archives. IPED Lite introduces key architectural improvements:
 
-Currently IPED uses the [Sleuthkit Library](https://github.com/sleuthkit/sleuthkit) only to decode disk images and file systems, so the same image formats are supported: RAW/DD, E01, ISO9660, AFF, VHD, VMDK. There is also support for EX01, VHDX, UDF(ISO), AD1 (AccessData) and UFDR (Cellebrite) formats.
+* **Configurable In-Memory Text Cache:** Implemented `textCacheMaxMemoryChars` in `ParsingTaskConfig` (capped at 1,000,000 characters in the `lite` profile), preventing unbounded string allocations during heavy document extractions.
+* **Compact HashIndex for Deduplication:** Replaced memory-heavy `HashMap<HashTask.Key, Set<Integer>>` in `DuplicateTask` with a primitive-backed `HashIndex`, reducing heap footprint by hundreds of megabytes during large deduplication passes.
+* **4,096 Striped Locks in SQLite Exporter:** Concurrency race conditions in `ExportFileTask` (which caused SQLite "no such table" errors during multi-threaded table creation) were resolved using striped synchronization locks.
+* **Dynamic Queue Backpressure:** Throttles producer tasks (priority 0) in `ProcessingQueues` when total queue size exceeds safe thresholds, preventing memory spikes caused by recursive archive extractions.
+* **Primitive Arrays & Data Source Cleanup:** Replaced boxed integer collections in `SleuthkitReader` with primitive `CompactIntArray`, clearing image tracking maps upon completion; streamlined `UfedXmlReader` to retain lightweight parent references instead of full item objects.
+* **Lazy Loading of Graph Analytics (Neo4j):** The embedded Neo4j graph engine is loaded on-demand only when the Graph Analysis tab is accessed, saving ~350–500 MB of heap and native memory at startup.
+* **Timeline Allocation Optimization:** Converted fixed 128 MB table buffers in `TimelineResults` to dynamic row allocation, and made multi-source doc caches instance-bound to eliminate static retention.
+* **Tuned Garbage Collection Defaults:** Bootstrap JVM flags are pre-configured with aggressive memory reclamation (`-XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=30 -XX:+UseStringDeduplication -XX:ReservedCodeCacheSize=128m -XX:MaxMetaspaceSize=384m`).
 
-If you are new to the tool, please refer to the [Beginner's Start Guide](https://github.com/lfcnassif/IPED/wiki/Beginner's-Start-Guide).
+### 2. Performance Comparison
+On identical large email/mbox test sets (26,710 items) under a 2.0 GB heap limit:
+* **Standard Master:** Failed with concurrency errors and completed in 1,661 seconds.
+* **IPED Lite:** Finished with 0 errors in 742 seconds (**> 2.2x faster** with zero OutOfMemory errors).
 
-## Building
+---
 
-To build from source, you need git, maven and Java JDK 11 + JavaFX (e.g. Liberica OpenJDK 11 Full JDK) installed. Set JAVA_HOME environment var to your java 11 installation folder, then run:
+## Native Model Context Protocol (MCP) Server
+
+IPED Lite features a built-in JSON-RPC 2.0 MCP server over `stdio` (`iped.engine.mcp.McpServer`). It allows AI assistants and automated forensic agents to directly interact with IPED cases.
+
+### MCP Stdio Isolation
+To prevent protocol corruption, IPED Lite isolates standard I/O: all internal logging, Lucene notifications, and third-party outputs are redirected to `System.err`, ensuring `System.out` strictly carries JSON-RPC payloads.
+
+### Available MCP Tools
+
+| Tool | Description | Parameters |
+| :--- | :--- | :--- |
+| `iped_open_case` | Opens an indexed IPED case for reading and querying. | `path` (string) |
+| `iped_list_cases` | Returns status and item counts for the active case. | None |
+| `iped_categories` | Lists all forensic categories identified in the case. | None |
+| `iped_search` | Searches items using Lucene syntax with pagination. | `query` (string), `limit` (int), `offset` (int) |
+| `iped_get_item` | Retrieves full metadata properties and attributes for an item. | `id` (int) |
+| `iped_get_text` | Fetches decoded text content in chunks with continuation flags. | `id` (int), `offset_chars` (int), `max_chars` (int) |
+| `iped_bookmarks_list` | Lists all bookmarks/tags and their item counts. | None |
+| `iped_bookmarks_add` | Adds or dynamically creates a bookmark/tag for an item. | `id` (int), `bookmark` (string) |
+| `iped_process` | Initiates background forensic processing of evidence. | `evidence` (string), `output` (string), `profile` (string), `extraArgs` (string) |
+| `iped_process_status` | Checks progress and status of active background processing. | None |
+
+---
+
+## Agent Configuration
+
+### 1. Claude Desktop / Generic MCP Client
+Add the server entry to your `claude_desktop_config.json` or `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "ipedlite": {
+      "command": "java",
+      "args": [
+        "-cp",
+        "path/to/ipedlite/iped.jar;path/to/ipedlite/lib/*",
+        "iped.engine.mcp.McpServer"
+      ]
+    }
+  }
+}
 ```
-git clone https://github.com/sepinf-inc/IPED.git
-cd IPED
-mvn clean install
+
+### 2. Claude Code CLI
+Register the server directly via command line:
+
+```bash
+claude mcp add ipedlite -- java -cp "path/to/ipedlite/iped.jar;path/to/ipedlite/lib/*" iped.engine.mcp.McpServer
 ```
-It will generate an snapshot version of IPED in target/release folder.
 
-<b>Attention:</b> the default master branch is the development one and is unstable. If you want to build a stable version, checkout some of the release tags after the clone step.
+---
 
-On Linux you also must build The Sleuthkit and additional dependencies. Please refer to [Linux Section](https://github.com/sepinf-inc/IPED/wiki/Linux)
+## Building from Source
 
-Contributions are very welcome! Before contributing please refer to [Contributing](https://github.com/lfcnassif/IPED/wiki/Contributing)
+### Prerequisites
+* **Java 11 JDK** with JavaFX (e.g., [BellSoft Liberica JDK 11 Full](https://bell-sw.com/pages/downloads/))
+* **Apache Maven 3.8+**
+* **Git**
 
-## Features
+### Build Steps
 
-Some of IPED several features are listed below:
+```bash
+# Clone the repository
+git clone https://github.com/ojaneri/ipedlite.git
+cd ipedlite
 
-- Supported hashes: md5, sha-1, sha-256, sha-512 and edonkey. PhotoDNA is also available **for law enforcement** (please contact iped at pf dot gov dot br)
-- Supported hash sets: NIST NSRL, NIST CAID, ProjectVIC, Interpol ICSE, standard CSV format
-- Fast hash deduplication 
-- Signature analysis
-- Categorization by file type and properties
-- Recursive container expansion of dozens of file formats
-- Embedded forensic/virtual disks expansion: supports splitted or single segment DD, E01, EX01, VHD, VHDX, VMDK (differential VMDKs are also supported) 
-- Image and video gallery for hundreds of formats
-- Georeferencing of GPS data, using Google Maps, Bing or OpenStreetMaps
-- Regex searches with optional script validation for credit cards, emails, urls, ip & mac addresses, money values, bitcoin, ethereum, monero, ripple wallets and more...
-- Embedded hex, unicode text, metadata and native viewers
-- File content and metadata indexing and fast searching, including unknown files and unallocated space
-- Efficient data carving engine (takes < 10% processing time) that scans much more than unallocated, with support for +40 file formats, including videos, extensible by scripting
-- Optical Character Recognition powered by tesseract 5
-- Encryption detection for known formats and using entropy test
-- Processing profiles: forensic, pedo (csam), triage, fastmode (preview) and blind (for automatic data extraction)
-- Detection for +70 languages
-- Named Entity Recognition (needs Stanford CoreNLP models to be downloaded)
-- Customizable filters based on any file metadata
-- Similar document search with configurable threshold
-- Similar image search, using internal or external image
-- Similar face recognition, optimized to run without GPU, with configurable threshold
-- Unified table timeline view and event filtering for timeline analysis
-- Powerful file grouping (clustering) based on ANY metadata
-- Support for multicases up to 135 million items
-- Extensible with javascript and python (including cpython extensions) scripts
-- External command line tools integration for file decoding
-- Browser history for IE, Edge, Firefox, Chrome and Safari
-- Custom parsers for Emule, Shareaza, Ares, WhatsApp, Skype, Telegram, Bittorrent, ActivitiesCache, and more...
-- Fast nudity detection for images and videos using random forests algorithm (thanks to its author @tc-wleite)
-- Nudity detection using Yahoo open-nsfw deeplearning model (needs keras and tensorflow)
-- Audio Transcription, local and remote implementations with Azure and Google Cloud services
-- Graph analysis for communications (calls, emails, instant messages...)
-- Stable processing with out-of-process file system decoding and file parsing
-- Resuming or restarting stopped or aborted processing (--continue/--restart options)
-- Web API for searching remote cases, get file metadata, raw content, decoded text, thumbnails and posting bookmarks
-- Creation of bookmarks/tags for interesting data
-- HTML, CSV reports and portable cases with tagged data
+# Build the release package
+mvn clean install -DskipTests
+```
 
-## Screenshots
+The compiled release package will be located in:
+`target/release/iped-4.4.0-SNAPSHOT/`
 
-Processing:
-![image](https://github.com/sepinf-inc/IPED/assets/7276994/bf29b44a-a924-4c65-845c-6282a4b91861)
+---
 
-Analysis:
-![image](https://github.com/sepinf-inc/IPED/assets/7276994/5fca2b65-6763-4bc1-9284-604c8b325d54)
+## Usage
 
-Data Carving & Video Thumbnails:
-![image](https://github.com/sepinf-inc/IPED/assets/7276994/4d908fe5-6cb1-443b-96fa-d937fa1d2e2d)
+### 1. Processing Evidence with the `lite` Profile
+To process evidence using the memory-optimized profile:
 
-Regex Results:
-![image](https://github.com/sepinf-inc/IPED/assets/7276994/db34adc7-d7b9-4b56-8a35-99e095380d0b)
+```bash
+java -jar iped.jar -profile lite -d /path/to/evidence -o /path/to/output_case
+```
 
-Map:
-![image](https://github.com/sepinf-inc/IPED/assets/7276994/279b9280-3a72-484a-8aed-e4d015df196f)
+### 2. Analyzing Cases in the UI
+Launch the graphical interface:
 
-Communication links:
-![image](https://github.com/sepinf-inc/IPED/assets/7276994/8b164948-fa36-47b8-a249-f64547a36b28)
+```bash
+java -jar iped.jar
+```
+*(Neo4j graph analytics will remain unloaded until the Graph tab is actively clicked, preserving system RAM).*
 
-Face search:
-![image](https://github.com/sepinf-inc/IPED/assets/7276994/d9b37060-afa4-4e9b-ae55-a9d8413ac43a)
+### 3. Launching the MCP Server Standalone
+```bash
+java -cp "iped.jar;lib/*" iped.engine.mcp.McpServer
+```
 
-Audio Transcription:
-![image](https://github.com/sepinf-inc/IPED/assets/7276994/ebded2ad-f88d-43c8-9699-66e498c9939c)
+---
 
-Timeline:
-![image](https://github.com/sepinf-inc/IPED/assets/7276994/011657e3-8ff2-4105-b3c2-116980772fc0)
+## Core Features Inherited from IPED
 
-Time chart:
-![image](https://github.com/sepinf-inc/IPED/assets/7276994/81df1c18-361d-49f1-b755-36520437803a)
+IPED Lite retains the full forensic processing capabilities of IPED:
+* **Evidence Formats:** RAW/DD, E01, EX01, ISO9660, VHD, VMDK, AD1, UFDR (Cellebrite).
+* **Hash Algorithms & Sets:** MD5, SHA-1, SHA-256, SHA-512, Edonkey, NIST NSRL, ProjectVIC, ICSE.
+* **Decoding & Parsing:** Container expansion, browser history, mobile app databases (WhatsApp, Telegram, Skype), audio transcription, and OCR.
+* **Carving Engine:** File carving across unallocated and raw space with support for 40+ file formats.
+* **Query & Search:** Full-text indexing, regex matching (credit cards, cryptocurrency wallets, emails, phone numbers).
 
-Events correlation of 2 suspects actions and illegal activities:
-![image](https://github.com/sepinf-inc/IPED/assets/7276994/e1f47b15-ba89-4436-9291-7ec354ef2b57)
+---
+
+## License
+
+IPED Lite is released under the GNU General Public License v3.0 (GPL-3.0), matching upstream IPED.
