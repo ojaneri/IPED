@@ -95,3 +95,18 @@ the item count changes from run to run at this heap (26,705 / 26,709 / 26,710) b
 parse when memory runs out. The earlier alone run that stopped after 163 s without `FileList.csv`
 (mboxB800b) is still unexplained. The runs at 1500 MB (master and lite, started 21:48) were still going at
 21:57.
+
+### mbox at 1500 MB (master and lite engines, run together, stdout captured)
+
+Both finished normally with **26,710 items**, 0 OutOfMemoryError, 5.8 GB output. No memory curve (these runs
+did not go through the measuring script). Conclusion for this input with the lite profile (4 threads):
+800 MB loses items to OOM, 1500 MB is enough for both engines, and the code changes of the `lite` branch
+(text cache limit, hash index) made no visible difference in either result. The lite profile mixes several
+factors (tasks off, 4 threads, smaller queue and index fragments); their separate effects were not isolated.
+
+### Assessment (2026-10-31)
+
+- Proven gain: the profile/configuration (UFDR: 105 s to 43 s, peak 3.9 GB to 1.8-2.0 GB, minimum heap
+  accepted 2.5 GB to 0.8 GB). Part of it is only the thread count (4 instead of 12) and the features it turns off.
+- No measurable gain yet from the Java changes of Etapa 3 on the two inputs tested.
+- The analysis side (UI, result sets, sorting, timeline) was not measured at all.
