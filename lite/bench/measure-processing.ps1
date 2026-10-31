@@ -50,7 +50,8 @@ function Get-Tree([int]$rootPid) {
 }
 
 $sw = [Diagnostics.Stopwatch]::StartNew()
-$proc = Start-Process -FilePath $java -ArgumentList $iArgs -PassThru -NoNewWindow
+$proc = Start-Process -FilePath $java -ArgumentList $iArgs -PassThru -NoNewWindow `
+    -RedirectStandardOutput "$Output.stdout.log" -RedirectStandardError "$Output.stderr.log"
 $peakWs = 0; $peakPriv = 0; $peakSingle = 0; $peakCount = 0
 
 while (-not $proc.HasExited) {

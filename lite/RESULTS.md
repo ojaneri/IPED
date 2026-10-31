@@ -110,3 +110,26 @@ factors (tasks off, 4 threads, smaller queue and index fragments); their separat
   accepted 2.5 GB to 0.8 GB). Part of it is only the thread count (4 instead of 12) and the features it turns off.
 - No measurable gain yet from the Java changes of Etapa 3 on the two inputs tested.
 - The analysis side (UI, result sets, sorting, timeline) was not measured at all.
+
+## Isolation matrix on the mbox (started 2026-10-31)
+
+Same input (4.7 GB mbox), engines run alone one after the other. `t4` = default features with 4 threads
+(benchmark profile created by hand). `matrix.log` in `D:\iped-bench` has the summary of each run.
+
+### M0: `master` engine, default profile, default heap (12 threads, about 4 GB)
+
+The first run did not end well and the measuring script died before the end (the background task that hosted
+it was lost; the IPED process kept running on its own), so there is no summary line:
+
+- about 29 minutes (08:38 to 09:07), memory samples only up to 1,293 s: peak private at least 5,559 MB, working set
+  at least 4,667 MB (so the real peak may be higher);
+- **ended with an error:** 1,109 warnings `Error exporting ...: no such table: t1` from `ExportFileTask`
+  (the SQLite storage of exported files), then `cannot commit - no transaction is active` in
+  `ExportFileTask.commitStorage` (`Manager.java:658`) and `Processing Error`. `FileList.csv` has 25,558 items,
+  against 26,710 in the lite-profile runs that had enough heap;
+- the lite-profile runs (4 threads, HTML report off) show none of these errors (checked in the saved stdout of the
+  1500 MB and 800 MB runs). Cause not found yet: candidates are the default profile itself (HTML report enabled, which
+  changes `storeInSQLite`), 12 threads creating the storage databases, or something else. It is a possible bug of the
+  `master` engine, independent of our changes; M0b (same profile with the `lite` branch engine) will show if it repeats.
+- Scripts now write the child's stdout and stderr to `<output>.stdout.log` / `.stderr.log`, and the matrix runs as a
+  detached process.
