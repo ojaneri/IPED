@@ -4,6 +4,46 @@
 
 It is designed to run efficiently on commodity workstations and laptops with limited memory (such as 8 GB RAM machines, operating under a strict ≤ 3 GB JVM heap limit), while enabling AI agents to programmatically query, inspect, and tag forensic evidence via standard stdio JSON-RPC.
 
+* **Repository:** `https://github.com/ojaneri/ipedlite`
+
+---
+
+## 📋 Copy & Paste Prompt for AI Agents (Claude Code, Antigravity, etc.)
+
+Copy and paste the prompt below into your AI assistant session to have the agent clone, build, configure, and use IPED Lite via MCP:
+
+```text
+We are using IPED Lite (https://github.com/ojaneri/ipedlite.git), an optimized digital forensic processing engine with native Model Context Protocol (MCP) support over stdio.
+
+Please follow these steps:
+1. Verify if IPED Lite is already built locally. If not:
+   - Ensure Java 11 JDK (with JavaFX) and Maven are installed.
+   - Clone: git clone https://github.com/ojaneri/ipedlite.git
+   - Build: cd ipedlite && mvn clean install -DskipTests
+   - The compiled release folder will be located in: target/release/iped-4.4.0-SNAPSHOT/
+
+2. Configure and connect to the IPED Lite MCP Server:
+   - Command: java (or full path to java.exe)
+   - Classpath: "<release_folder>/iped.jar;<release_folder>/lib/*" (use ":" on Linux/macOS)
+   - Main class: iped.engine.mcp.McpServer
+   - For Claude Code CLI, register with:
+     claude mcp add ipedlite -- java -cp "<release_folder>/iped.jar;<release_folder>/lib/*" iped.engine.mcp.McpServer
+   - For Claude Desktop / Antigravity / Cursor, add to mcpServers in configuration:
+     "ipedlite": { "command": "java", "args": ["-cp", "<release_folder>/iped.jar;<release_folder>/lib/*", "iped.engine.mcp.McpServer"] }
+
+3. Inspect and query forensic cases using the available MCP tools:
+   - iped_open_case(path): Open an indexed case folder for querying.
+   - iped_list_cases(): Check the status, path, and item counts of the active case.
+   - iped_categories(): Discover forensic categories present in the case.
+   - iped_search(query, limit, offset): Perform Lucene queries (e.g., "*", "name:*.xlsx", "type:email").
+   - iped_get_item(id): Retrieve full metadata properties, attributes, and tags for an item.
+   - iped_get_text(id, offset_chars, max_chars): Extract decoded document text in paged chunks.
+   - iped_bookmarks_add(id, bookmark): Dynamically create and tag suspicious evidence items.
+   - iped_bookmarks_list(): List all active bookmarks and tag counts.
+   - iped_process(evidence, output, profile): Launch background evidence processing with profile="lite".
+   - iped_process_status(): Track asynchronous processing jobs.
+```
+
 ---
 
 ## Key Differences from Standard IPED
@@ -51,7 +91,7 @@ To prevent protocol corruption, IPED Lite isolates standard I/O: all internal lo
 
 ---
 
-## Agent Configuration
+## Agent Configuration Snippets
 
 ### 1. Claude Desktop / Generic MCP Client
 Add the server entry to your `claude_desktop_config.json` or `.mcp.json`:
@@ -63,7 +103,7 @@ Add the server entry to your `claude_desktop_config.json` or `.mcp.json`:
       "command": "java",
       "args": [
         "-cp",
-        "path/to/ipedlite/iped.jar;path/to/ipedlite/lib/*",
+        "path/to/ipedlite/target/release/iped-4.4.0-SNAPSHOT/iped.jar;path/to/ipedlite/target/release/iped-4.4.0-SNAPSHOT/lib/*",
         "iped.engine.mcp.McpServer"
       ]
     }
@@ -75,7 +115,7 @@ Add the server entry to your `claude_desktop_config.json` or `.mcp.json`:
 Register the server directly via command line:
 
 ```bash
-claude mcp add ipedlite -- java -cp "path/to/ipedlite/iped.jar;path/to/ipedlite/lib/*" iped.engine.mcp.McpServer
+claude mcp add ipedlite -- java -cp "path/to/release/iped.jar;path/to/release/lib/*" iped.engine.mcp.McpServer
 ```
 
 ---
