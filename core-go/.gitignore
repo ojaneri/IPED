@@ -1,0 +1,7 @@
+*.exe
+*.dll
+*.so
+*.dylib
+caso-*.db
+custodia.jsonl
+*.test
