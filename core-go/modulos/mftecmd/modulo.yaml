@@ -1,0 +1,38 @@
+contrato: 1
+nome: mftecmd
+titulo: Parser Rápido de Sistema de Arquivos NTFS ($MFT)
+versao: "1.2.2"
+opcional: false
+reconhece:
+  - tipo: mft
+    magica_hex: "46494c45" # FILE
+    extensoes: [.mft]
+consome: [mft]
+modo: arquivo
+instalar:
+  windows-amd64:
+    url: https://download.ericzimmerman.technology/net6/MFTECmd.zip
+    sha256: ""
+comando:
+  windows:
+    exec: MFTECmd.exe
+    args:
+      - "-f"
+      - "{entrada}"
+      - "--csv"
+      - "{saida}"
+      - "--csvf"
+      - "mftecmd.csv"
+saida:
+  arquivos: "mftecmd.csv"
+  formato: csv
+  mapas:
+    - tipo: evento
+      quando: "{LastModified0x10}"
+      fonte: "NTFS: $MFT"
+      descricao: "{ParentPath}\\{FileName}"
+      severidade: "info"
+      origem_local: "Record #{EntryNumber}"
+      entidades:
+        - tipo: arquivo
+          valor: "{FileName}"

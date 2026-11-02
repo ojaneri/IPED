@@ -64,6 +64,24 @@ func TestCicloDeVidaDoCaso(t *testing.T) {
 		t.Fatalf("esperava 1 evento, obteve total=%d, len=%d", total, len(eventos))
 	}
 
+	// 6.1 Testa ObterEvidencia
+	evObtida, err := c.ObterEvidencia(ev.ID)
+	if err != nil || evObtida.Nome != "evidencia_teste.bin" {
+		t.Fatalf("falha ao obter evidencia: %v", err)
+	}
+
+	// 6.2 Testa BuscarAlertas
+	alertas, err := c.BuscarAlertas("alta", 10)
+	if err != nil || len(alertas) != 1 {
+		t.Fatalf("esperava 1 alerta de severidade alta, obteve %d", len(alertas))
+	}
+
+	// 6.3 Testa BuscarEntidades
+	entidades, err := c.BuscarEntidades("usuario", "admin", 10)
+	if err != nil || len(entidades) != 1 || entidades[0].Valor != "admin" {
+		t.Fatalf("esperava entidade admin, obteve: %+v", entidades)
+	}
+
 	// 7. Fecha o caso e reabre
 	if err := c.Fechar(); err != nil {
 		t.Fatalf("falha ao fechar: %v", err)

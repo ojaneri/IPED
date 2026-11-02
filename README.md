@@ -178,6 +178,73 @@ IPED Lite retains the full forensic processing capabilities of IPED:
 
 ---
 
+## ⚡ Hybrid Go + Java Architecture (`core-go / iped-hub`)
+
+IPED Lite incorporates an ultra-fast, lightweight orchestrator written in pure Go (`core-go/cmd/iped-hub`), inspired by modern triage engines. It acts as a central hub for evidence triage, cryptographic custody, and unified timeline exploration:
+
+* **In-Situ Ingestion:** Analyzes disk images (`E01`, `RAW`, `DD`) and files directly at their original storage location without duplication, calculating streaming MD5, SHA-1, and SHA-256 hashes simultaneously in a single pass.
+* **Cryptographic Chained Custody:** Every case modification, evidence addition, module run, and forensic bookmark is cryptographically sealed in an append-only hash chain (`custodia.jsonl`) using SHA-256 state hashing.
+* **Declarative Module Pipeline:** Dynamic plug-and-play modules defined via `modulo.yaml`:
+  * `hayabusa`: Ultra-fast EVTX Windows event log analysis with Sigma detection rules.
+  * `mftecmd`: Rapid NTFS `$MFT` timeline parser.
+  * `hindsight`: Chrome, Edge, and Brave browser forensics.
+  * `iped-lite`: Deep content examination, Lucene indexing, carving, and OCR (spawned in-process or headless).
+* **Unified SQLite WAL Database:** Consolidates all findings, alerts, timelines, and extracted entities (IPs, users, domains, hashes) in a single portable database (`caso.db`).
+
+### Running the Go Orchestrator Hub
+
+```bash
+# Build the Go hub executable
+cd core-go
+go build -o iped-hub.exe ./cmd/iped-hub
+
+# Create a new forensic case
+iped-hub.exe novo /path/to/case "Operation Name" "Examiner Name"
+
+# Ingest an evidence file in-situ
+iped-hub.exe evidencia /path/to/case /path/to/evidence.raw
+
+# Run fast triage pipeline
+iped-hub.exe triagem /path/to/case <evidence_id>
+
+# Inspect high-severity alerts and IOCs
+iped-hub.exe alertas /path/to/case
+
+# Query correlated entities (IPs, accounts, domains)
+iped-hub.exe entidades /path/to/case ip
+
+# Verify cryptographic chain of custody
+iped-hub.exe verificar /path/to/case
+
+# Launch MCP Server for AI agents
+iped-hub.exe mcp
+```
+
+### Full Go Hub MCP Tools Reference (18 Tools)
+
+| Tool | Category | Description |
+| :--- | :--- | :--- |
+| `iped_create_case` | Case Management | Creates a new case with SQLite WAL and chained custody. |
+| `iped_open_case` | Case Management | Opens an existing case directory. |
+| `iped_case_status` | Case Management | Returns counts of evidence, timeline events, bookmarks, and custody status. |
+| `iped_custody_verify` | Chain of Custody | Recalculates and cryptographically validates all custody records. |
+| `iped_evidence_add` | Evidence Ingestion | Ingests evidence in-situ (without disk duplication) with streaming multi-hash. |
+| `iped_evidence_list` | Evidence Ingestion | Lists all registered evidence items and hashes. |
+| `iped_identify_evidence` | Triage Engine | Identifies evidence format by magic bytes signature and extension. |
+| `iped_modules_list` | Triage Engine | Lists all declarative analysis modules registered in the system. |
+| `iped_triage_plan` | Triage Engine | Assembles an optimal execution plan (fast triage first, deep analysis optional). |
+| `iped_triage_run` | Triage Engine | Executes triage modules and consolidates findings into the timeline. |
+| `iped_timeline_search` | Search & Triage | Searches the consolidated multi-source event timeline with pagination. |
+| `iped_alerts_list` | Search & Triage | Queries critical/high security alerts and Sigma detections. |
+| `iped_entities_query` | Search & Triage | Correlates extracted entities (IPs, users, services) with timeline events. |
+| `iped_bookmarks_add` | Analysis & Notes | Adds a forensic bookmark and note to evidence/items. |
+| `iped_bookmarks_list` | Analysis & Notes | Lists all forensic bookmarks in the active case. |
+| `iped_deep_process` | Deep Examination | Launches headless IPED Lite Java examination in background. |
+| `iped_deep_status` | Deep Examination | Tracks progress and duration of the background Java worker. |
+| `iped_import_iped_case` | Deep Examination | Ingests existing IPED case files (`FileList.csv`) into the unified SQLite database. |
+
+---
+
 ## License
 
 IPED Lite is released under the GNU General Public License v3.0 (GPL-3.0), matching upstream IPED.

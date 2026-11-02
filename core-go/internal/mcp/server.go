@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/ojaneri/ipedlite/core-go/internal/caso"
 	"github.com/ojaneri/ipedlite/core-go/internal/modulo"
+	"github.com/ojaneri/ipedlite/core-go/internal/motor"
 	"github.com/ojaneri/ipedlite/core-go/internal/worker"
 )
 
@@ -63,12 +65,13 @@ type ToolCallResult struct {
 
 // Server implementa o servidor MCP para o IPED Lite Hub.
 type Server struct {
-	casoAtivo  *caso.Caso
-	worker     *worker.IPEDWorker
-	dirModulos string
-	mu         sync.Mutex
-	in         io.Reader
-	out        io.Writer
+	casoAtivo      *caso.Caso
+	worker         *worker.IPEDWorker
+	dirModulos     string
+	dirFerramentas string
+	mu             sync.Mutex
+	in             io.Reader
+	out            io.Writer
 }
 
 // NovoServer instancia um novo servidor MCP.
@@ -83,11 +86,18 @@ func NovoServer(in io.Reader, out io.Writer, w *worker.IPEDWorker) *Server {
 			dirModulos = "core-go/modulos"
 		}
 	}
+	dirFerramentas := "ferramentas"
+	if _, err := os.Stat(dirFerramentas); os.IsNotExist(err) {
+		if _, err := os.Stat("core-go/ferramentas"); err == nil {
+			dirFerramentas = "core-go/ferramentas"
+		}
+	}
 	return &Server{
-		in:         in,
-		out:        out,
-		worker:     w,
-		dirModulos: dirModulos,
+		in:             in,
+		out:            out,
+		worker:         w,
+		dirModulos:     dirModulos,
+		dirFerramentas: dirFerramentas,
 	}
 }
 
@@ -330,6 +340,53 @@ func (s *Server) definicaoFerramentas() []ToolInfo {
 					"path": map[string]string{"type": "string", "description": "Caminho do arquivo ou imagem da evidência"},
 				},
 				Required: []string{"path"},
+			},
+		},
+		{
+			Name:        "iped_triage_plan",
+			Description: "Monta o plano de execução pericial ordenado (triagem rápida primeiro, exames profundos opcionais)",
+			InputSchema: ToolInputSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"path":         map[string]string{"type": "string", "description": "Caminho do arquivo ou imagem da evidência"},
+					"evidence_id":  map[string]string{"type": "integer", "description": "ID da evidência já cadastrada no caso (alternativa ao path)"},
+					"include_deep": map[string]string{"type": "boolean", "description": "Se true, inclui módulos profundos e mais lentos (ex: IPED Lite Java). Padrão false"},
+				},
+			},
+		},
+		{
+			Name:        "iped_triage_run",
+			Description: "Executa o plano de triagem pericial para uma evidência e consolida eventos e entidades no caso",
+			InputSchema: ToolInputSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"evidence_id":  map[string]string{"type": "integer", "description": "ID da evidência registrada no caso a ser processada"},
+					"include_deep": map[string]string{"type": "boolean", "description": "Se true, executa também os exames profundos (ex: IPED Lite). Padrão false"},
+				},
+				Required: []string{"evidence_id"},
+			},
+		},
+		{
+			Name:        "iped_alerts_list",
+			Description: "Consulta alertas de segurança e achados críticos/altos detectados na linha do tempo",
+			InputSchema: ToolInputSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"severity": map[string]string{"type": "string", "description": "Filtro de severidade ('critica', 'alta', 'media', 'baixa' ou vazio para críticas e altas)"},
+					"limit":    map[string]string{"type": "integer", "description": "Limite máximo de alertas retornados (padrão 50)"},
+				},
+			},
+		},
+		{
+			Name:        "iped_entities_query",
+			Description: "Pesquisa entidades forenses extraídas (IPs, e-mails, domínios, arquivos, usuários) correlacionadas com seus eventos",
+			InputSchema: ToolInputSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"type":  map[string]string{"type": "string", "description": "Tipo de entidade (ex: 'ip', 'email', 'usuario', 'arquivo' ou '*' para todos)"},
+					"query": map[string]string{"type": "string", "description": "Termo ou padrão do valor da entidade para busca"},
+					"limit": map[string]string{"type": "integer", "description": "Limite máximo de entidades retornadas (padrão 50)"},
+				},
 			},
 		},
 	}
@@ -579,6 +636,134 @@ func (s *Server) executarFerramenta(nome string, args map[string]interface{}) To
 		return respostaSucesso(map[string]interface{}{
 			"path": caminho,
 			"type": tipo,
+		})
+
+	case "iped_triage_plan":
+		caminho, _ := args["path"].(string)
+		incluirProfundo, _ := args["include_deep"].(bool)
+		evIDFloat, _ := args["evidence_id"].(float64)
+
+		if evIDFloat > 0 && s.casoAtivo != nil {
+			ev, err := s.casoAtivo.ObterEvidencia(int64(evIDFloat))
+			if err == nil && caminho == "" {
+				caminho = ev.Origem
+			}
+		}
+
+		if caminho == "" {
+			return respostaErro("Parâmetro 'path' ou 'evidence_id' válido é obrigatório.")
+		}
+
+		modulos, err := modulo.CarregarModulos(s.dirModulos)
+		if err != nil {
+			return respostaErro("Erro carregando módulos: " + err.Error())
+		}
+
+		tipo, err := modulo.IdentificarTipo(caminho, modulos)
+		if err != nil {
+			return respostaErro("Erro identificando tipo da evidência: " + err.Error())
+		}
+
+		plano := motor.MontarPlano(tipo, modulos, incluirProfundo)
+		var lista []map[string]interface{}
+		for _, m := range plano {
+			lista = append(lista, map[string]interface{}{
+				"modulo":   m.Nome,
+				"titulo":   m.Titulo,
+				"versao":   m.Versao,
+				"modo":     m.Modo,
+				"opcional": m.Opcional,
+				"consome":  m.Consome,
+			})
+		}
+
+		return respostaSucesso(map[string]interface{}{
+			"path":          caminho,
+			"type":          tipo,
+			"include_deep":  incluirProfundo,
+			"total_modules": len(lista),
+			"modules":       lista,
+		})
+
+	case "iped_triage_run":
+		if s.casoAtivo == nil {
+			return respostaErro("Nenhum caso aberto. Abra um caso antes de executar a triagem.")
+		}
+		evIDFloat, _ := args["evidence_id"].(float64)
+		if evIDFloat <= 0 {
+			return respostaErro("Parâmetro 'evidence_id' obrigatório.")
+		}
+		evID := int64(evIDFloat)
+		ev, err := s.casoAtivo.ObterEvidencia(evID)
+		if err != nil {
+			return respostaErro("Evidência não encontrada: " + err.Error())
+		}
+
+		incluirProfundo, _ := args["include_deep"].(bool)
+		modulos, err := modulo.CarregarModulos(s.dirModulos)
+		if err != nil {
+			return respostaErro("Erro carregando módulos: " + err.Error())
+		}
+
+		if ev.Tipo == "" || ev.Tipo == "arquivo" {
+			detected, errId := modulo.IdentificarTipo(ev.Origem, modulos)
+			if errId == nil && detected != "" {
+				ev.Tipo = detected
+			}
+		}
+
+		plano := motor.MontarPlano(ev.Tipo, modulos, incluirProfundo)
+		if len(plano) == 0 {
+			return respostaSucesso(map[string]interface{}{
+				"evidencia_id":   ev.ID,
+				"tipo_evidencia": ev.Tipo,
+				"total_modulos":  0,
+				"message":        "Nenhum módulo aplicável para o tipo de evidência: " + ev.Tipo,
+			})
+		}
+
+		resultado, err := motor.ExecutarPlano(context.Background(), s.casoAtivo, ev, plano, s.dirFerramentas)
+		if err != nil {
+			return respostaErro("Erro executando plano de triagem: " + err.Error())
+		}
+
+		return respostaSucesso(resultado)
+
+	case "iped_alerts_list":
+		if s.casoAtivo == nil {
+			return respostaErro("Nenhum caso aberto.")
+		}
+		severidade, _ := args["severity"].(string)
+		limite := 50
+		if l, ok := args["limit"].(float64); ok && l > 0 {
+			limite = int(l)
+		}
+		alertas, err := s.casoAtivo.BuscarAlertas(severidade, limite)
+		if err != nil {
+			return respostaErro("Erro buscando alertas: " + err.Error())
+		}
+		return respostaSucesso(map[string]interface{}{
+			"total":  len(alertas),
+			"alerts": alertas,
+		})
+
+	case "iped_entities_query":
+		if s.casoAtivo == nil {
+			return respostaErro("Nenhum caso aberto.")
+		}
+		tipo, _ := args["type"].(string)
+		termo, _ := args["query"].(string)
+		limite := 50
+		if l, ok := args["limit"].(float64); ok && l > 0 {
+			limite = int(l)
+		}
+		entidades, err := s.casoAtivo.BuscarEntidades(tipo, termo, limite)
+		if err != nil {
+			return respostaErro("Erro buscando entidades: " + err.Error())
+		}
+		return respostaSucesso(map[string]interface{}{
+			"total":    len(entidades),
+			"entities": entidades,
 		})
 
 	default:

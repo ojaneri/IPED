@@ -25,6 +25,12 @@ func TestMCPServerEmMemoria(t *testing.T) {
 		`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"iped_case_status","arguments":{}}}`,
 		// 5. iped_custody_verify
 		`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"iped_custody_verify","arguments":{}}}`,
+		// 6. iped_triage_plan
+		`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"iped_triage_plan","arguments":{"path":"C:\\\\Windows\\\\System32\\\\winevt\\\\Logs\\\\Security.evtx","include_deep":false}}}`,
+		// 7. iped_alerts_list
+		`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"iped_alerts_list","arguments":{}}}`,
+		// 8. iped_entities_query
+		`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"iped_entities_query","arguments":{"type":"*","query":"*"}}}`,
 	}
 
 	payloadEntrada := strings.Join(requisicoes, "\n") + "\n"
@@ -55,8 +61,8 @@ func TestMCPServerEmMemoria(t *testing.T) {
 	json.Unmarshal([]byte(linhasSaida[1]), &resp2)
 	resTools := resp2.Result.(map[string]interface{})
 	toolsList := resTools["tools"].([]interface{})
-	if len(toolsList) < 10 {
-		t.Fatalf("esperava pelo menos 10 ferramentas no MCP, obteve %d", len(toolsList))
+	if len(toolsList) < 18 {
+		t.Fatalf("esperava pelo menos 18 ferramentas no MCP, obteve %d", len(toolsList))
 	}
 
 	// Valida resposta 3 (iped_create_case)

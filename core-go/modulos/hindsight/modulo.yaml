@@ -1,0 +1,37 @@
+contrato: 1
+nome: hindsight
+titulo: Histórico de Navegação Chromium (Chrome, Edge, Brave)
+versao: "2024.1"
+opcional: false
+reconhece:
+  - tipo: navegador
+    extensoes: [.sqlite, .db]
+consome: [navegador]
+modo: arquivo
+instalar:
+  windows-amd64:
+    url: https://github.com/obsidianforensics/hindsight/releases/download/v2024.01/hindsight.exe
+    sha256: ""
+comando:
+  windows:
+    exec: hindsight.exe
+    args:
+      - "-i"
+      - "{entrada}"
+      - "-o"
+      - "{saida}/hindsight"
+      - "-f"
+      - "jsonl"
+saida:
+  arquivos: "hindsight.jsonl"
+  formato: jsonl
+  mapas:
+    - tipo: evento
+      quando: "{datetime}"
+      fonte: "Chromium: {data_type}"
+      descricao: "{value} ({title})"
+      severidade: "info"
+      origem_local: "{source_path}"
+      entidades:
+        - tipo: url
+          valor: "{url}"

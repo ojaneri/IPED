@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/ojaneri/ipedlite/core-go/internal/caso"
+	"github.com/ojaneri/ipedlite/core-go/internal/instalador"
 	"github.com/ojaneri/ipedlite/core-go/internal/mcp"
 	"github.com/ojaneri/ipedlite/core-go/internal/modulo"
+	"github.com/ojaneri/ipedlite/core-go/internal/motor"
 	"github.com/ojaneri/ipedlite/core-go/internal/worker"
 )
 
@@ -168,11 +172,174 @@ func main() {
 			fmt.Printf(" - [%s] %s v%s (Consome: %v, Modo: %s, Opcional: %v)\n", m.Nome, m.Titulo, m.Versao, m.Consome, m.Modo, m.Opcional)
 		}
 
+	case "preparar":
+		dirFerramentas := "ferramentas"
+		if len(args) >= 2 {
+			dirFerramentas = args[1]
+		}
+		dirModulos := "modulos"
+		if _, err := os.Stat(dirModulos); os.IsNotExist(err) {
+			if _, err := os.Stat("core-go/modulos"); err == nil {
+				dirModulos = "core-go/modulos"
+			}
+		}
+		modulos, err := modulo.CarregarModulos(dirModulos)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Erro carregando módulos: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Verificando e preparando dependências em '%s'...\n", dirFerramentas)
+		inst := instalador.NovoInstalador(dirFerramentas)
+		relatorio := inst.PrepararTodos(modulos)
+		fmt.Println("=== RELATÓRIO DE PREPARAÇÃO DE FERRAMENTAS ===")
+		for _, st := range relatorio {
+			statusStr := fmt.Sprintf("PRONTO (%s)", st.Caminho)
+			if !st.Instalado {
+				statusStr = fmt.Sprintf("FALHA: %s", st.Erro)
+			}
+			fmt.Printf(" - %s: %s\n", st.Modulo, statusStr)
+		}
+
+	case "triagem":
+		if len(args) < 3 {
+			fmt.Println("Uso: iped-hub triagem <pasta_caso> <evidencia_id> [--profundo]")
+			os.Exit(1)
+		}
+		dirCaso := args[1]
+		evID, err := strconv.ParseInt(args[2], 10, 64)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ID de evidência inválido: %v\n", args[2])
+			os.Exit(1)
+		}
+		incluirProfundo := false
+		if len(args) >= 4 && (args[3] == "--profundo" || args[3] == "-p") {
+			incluirProfundo = true
+		}
+
+		c, err := caso.Abrir(dirCaso)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Erro abrindo caso: %v\n", err)
+			os.Exit(1)
+		}
+		defer c.Fechar()
+
+		ev, err := c.ObterEvidencia(evID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Erro buscando evidência %d: %v\n", evID, err)
+			os.Exit(1)
+		}
+
+		dirModulos := "modulos"
+		if _, err := os.Stat(dirModulos); os.IsNotExist(err) {
+			if _, err := os.Stat("core-go/modulos"); err == nil {
+				dirModulos = "core-go/modulos"
+			}
+		}
+		modulos, err := modulo.CarregarModulos(dirModulos)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Erro carregando módulos: %v\n", err)
+			os.Exit(1)
+		}
+
+		if ev.Tipo == "" || ev.Tipo == "arquivo" {
+			detected, errId := modulo.IdentificarTipo(ev.Origem, modulos)
+			if errId == nil && detected != "" {
+				ev.Tipo = detected
+			}
+		}
+
+		plano := motor.MontarPlano(ev.Tipo, modulos, incluirProfundo)
+		if len(plano) == 0 {
+			fmt.Printf("Nenhum módulo compatível com o tipo da evidência (%s).\n", ev.Tipo)
+			return
+		}
+
+		dirFerramentas := "ferramentas"
+		if _, err := os.Stat(dirFerramentas); os.IsNotExist(err) {
+			if _, err := os.Stat("core-go/ferramentas"); err == nil {
+				dirFerramentas = "core-go/ferramentas"
+			}
+		}
+
+		fmt.Printf("Iniciando triagem para evidência [%d] %s (Tipo: %s | %d módulos planejados)...\n", ev.ID, ev.Nome, ev.Tipo, len(plano))
+		resPlano, err := motor.ExecutarPlano(context.Background(), c, ev, plano, dirFerramentas)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Erro durante a execução do plano: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("=== RESUMO DA TRIAGEM ===")
+		fmt.Printf("Módulos executados: %d\n", resPlano.TotalModulos)
+		fmt.Printf("Total de registros consolidados: %d\n", resPlano.TotalRegistros)
+		for _, item := range resPlano.ItensExecutados {
+			statusStr := "SUCESSO"
+			if !item.Sucesso {
+				statusStr = fmt.Sprintf("FALHA (%s)", item.Erro)
+			}
+			fmt.Printf(" - [%s] %s: %s | %d registros (%.2fs)\n", item.Modulo, item.Titulo, statusStr, item.Registros, item.DuracaoSeg)
+		}
+
+	case "alertas":
+		if len(args) < 2 {
+			fmt.Println("Uso: iped-hub alertas <pasta_caso> [severidade]")
+			os.Exit(1)
+		}
+		c, err := caso.Abrir(args[1])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Erro abrindo caso: %v\n", err)
+			os.Exit(1)
+		}
+		defer c.Fechar()
+
+		severidade := ""
+		if len(args) >= 3 {
+			severidade = args[2]
+		}
+		alertas, err := c.BuscarAlertas(severidade, 100)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Erro buscando alertas: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("=== ALERTAS E ACHADOS CRÍTICOS (%d) ===\n", len(alertas))
+		for _, a := range alertas {
+			fmt.Printf("[%s] %s | %s | %s (%s)\n", a.Severidade, a.Data, a.Fonte, a.Descricao, a.OrigemLocal)
+		}
+
+	case "entidades":
+		if len(args) < 2 {
+			fmt.Println("Uso: iped-hub entidades <pasta_caso> [tipo] [valor]")
+			os.Exit(1)
+		}
+		c, err := caso.Abrir(args[1])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Erro abrindo caso: %v\n", err)
+			os.Exit(1)
+		}
+		defer c.Fechar()
+
+		tipo := ""
+		if len(args) >= 3 {
+			tipo = args[2]
+		}
+		valor := ""
+		if len(args) >= 4 {
+			valor = args[3]
+		}
+		entidades, err := c.BuscarEntidades(tipo, valor, 100)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Erro buscando entidades: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("=== ENTIDADES FORENSES EXTRAÍDAS (%d) ===\n", len(entidades))
+		for _, e := range entidades {
+			fmt.Printf("[%s] %s -> Evento #%d (%s: %s)\n", e.Tipo, e.Valor, e.EventoID, e.Fonte, e.Descricao)
+		}
+
 	case "versao":
 		fmt.Printf("IPED Lite Hub v%s (arquitetura híbrida Go + Java)\n", versao)
 
 	default:
-		fmt.Printf("Comando desconhecido: %s\nComandos disponíveis: mcp, novo, evidencia, verificar, status, versao\n", comando)
+		fmt.Printf("Comando desconhecido: %s\nComandos disponíveis: mcp, novo, evidencia, verificar, status, importar-iped, modulos, preparar, triagem, alertas, entidades, versao\n", comando)
 		os.Exit(1)
 	}
 }

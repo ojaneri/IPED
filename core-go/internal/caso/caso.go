@@ -54,6 +54,18 @@ type Evento struct {
 	OrigemLocal string `json:"origem_local"`
 }
 
+// EntidadeComEvento enriquece a entidade com os dados contextuais do evento associado.
+type EntidadeComEvento struct {
+	ID          int64  `json:"id"`
+	EventoID    int64  `json:"evento_id"`
+	Tipo        string `json:"tipo"`
+	Valor       string `json:"valor"`
+	Data        string `json:"data"`
+	Fonte       string `json:"fonte"`
+	Descricao   string `json:"descricao"`
+	Severidade  string `json:"severidade"`
+}
+
 // Marcacao representa um bookmark/tag pericial.
 type Marcacao struct {
 	ID          int64  `json:"id"`
@@ -361,6 +373,95 @@ func (c *Caso) ListarEvidencias() ([]Evidencia, error) {
 		if err := rows.Scan(&e.ID, &e.Nome, &e.Origem, &inSituInt, &e.Tamanho, &e.SHA256, &e.SHA1, &e.MD5, &e.Tipo, &e.Adicionada); err == nil {
 			e.InSitu = inSituInt == 1
 			lista = append(lista, e)
+		}
+	}
+	return lista, nil
+}
+
+// ObterEvidencia busca uma evidência específica pelo seu ID.
+func (c *Caso) ObterEvidencia(id int64) (*Evidencia, error) {
+	row := c.DB.QueryRow("SELECT id, nome, origem, in_situ, tamanho, sha256, sha1, md5, tipo, adicionada FROM evidencias WHERE id = ?", id)
+	var e Evidencia
+	var inSituInt int
+	if err := row.Scan(&e.ID, &e.Nome, &e.Origem, &inSituInt, &e.Tamanho, &e.SHA256, &e.SHA1, &e.MD5, &e.Tipo, &e.Adicionada); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("evidência id %d não encontrada", id)
+		}
+		return nil, err
+	}
+	e.InSitu = inSituInt == 1
+	return &e, nil
+}
+
+// BuscarAlertas retorna eventos filtrados por nível de severidade (padrão 'critica' e 'alta').
+func (c *Caso) BuscarAlertas(severidade string, limite int) ([]Evento, error) {
+	if limite <= 0 {
+		limite = 100
+	}
+	query := "SELECT id, evidencia_id, data, fonte, descricao, severidade, origem_local FROM eventos WHERE "
+	var args []interface{}
+	if severidade != "" && severidade != "*" {
+		query += "LOWER(severidade) = LOWER(?) "
+		args = append(args, severidade)
+	} else {
+		query += "LOWER(severidade) IN ('critica', 'alta', 'critico', 'alto', 'critical', 'high') "
+	}
+	query += "ORDER BY CASE LOWER(severidade) WHEN 'critica' THEN 1 WHEN 'critical' THEN 1 WHEN 'alta' THEN 2 WHEN 'high' THEN 2 ELSE 3 END, data DESC LIMIT ?"
+	args = append(args, limite)
+
+	rows, err := c.DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var lista []Evento
+	for rows.Next() {
+		var ev Evento
+		if err := rows.Scan(&ev.ID, &ev.EvidenciaID, &ev.Data, &ev.Fonte, &ev.Descricao, &ev.Severidade, &ev.OrigemLocal); err == nil {
+			lista = append(lista, ev)
+		}
+	}
+	return lista, nil
+}
+
+// BuscarEntidades localiza entidades extraídas correlacionadas com seus respectivos eventos.
+func (c *Caso) BuscarEntidades(tipo, valor string, limite int) ([]EntidadeComEvento, error) {
+	if limite <= 0 {
+		limite = 100
+	}
+	query := `
+		SELECT e.id, e.evento_id, e.tipo, e.valor, ev.data, ev.fonte, ev.descricao, ev.severidade
+		FROM entidades e
+		JOIN eventos ev ON e.evento_id = ev.id
+	`
+	var whereParts []string
+	var args []interface{}
+	if tipo != "" && tipo != "*" {
+		whereParts = append(whereParts, "e.tipo = ?")
+		args = append(args, tipo)
+	}
+	if valor != "" && valor != "*" {
+		whereParts = append(whereParts, "e.valor LIKE ?")
+		args = append(args, "%"+valor+"%")
+	}
+	if len(whereParts) > 0 {
+		query += " WHERE " + strings.Join(whereParts, " AND ")
+	}
+	query += " ORDER BY ev.data DESC LIMIT ?"
+	args = append(args, limite)
+
+	rows, err := c.DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var lista []EntidadeComEvento
+	for rows.Next() {
+		var item EntidadeComEvento
+		if err := rows.Scan(&item.ID, &item.EventoID, &item.Tipo, &item.Valor, &item.Data, &item.Fonte, &item.Descricao, &item.Severidade); err == nil {
+			lista = append(lista, item)
 		}
 	}
 	return lista, nil

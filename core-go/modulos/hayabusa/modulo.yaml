@@ -1,0 +1,45 @@
+contrato: 1
+nome: hayabusa
+titulo: Análise Rápida de Logs EVTX com Regras Sigma
+versao: "2.17.0"
+opcional: false
+reconhece:
+  - tipo: log_eventos
+    magica_hex: "456c6646696c6500" # ElfFile\0
+    extensoes: [.evtx]
+consome: [log_eventos]
+modo: arquivo
+instalar:
+  windows-amd64:
+    url: https://github.com/Yamato-Security/hayabusa/releases/download/v2.17.0/hayabusa-2.17.0-win-x64.zip
+    sha256: d8d523677b102b5e28a2a7b6cf09559c5d120a16b9b2ffae19e485e94b29f9e7
+comando:
+  windows:
+    exec: hayabusa-2.17.0-win-x64.exe
+    args:
+      - "csv-timeline"
+      - "-f"
+      - "{entrada}"
+      - "-o"
+      - "{saida}/hayabusa.csv"
+      - "--profile"
+      - "standard"
+      - "--no-summary"
+      - "--quiet"
+saida:
+  arquivos: "hayabusa.csv"
+  formato: csv
+  mapas:
+    - tipo: alerta
+      quando: "{Timestamp}"
+      fonte: "Hayabusa: {RuleTitle}"
+      descricao: "{Details}"
+      severidade: "{Level}"
+      origem_local: "{Channel}:{RecordID}"
+      entidades:
+        - tipo: computador
+          valor: "{Computer}"
+        - tipo: regra
+          valor: "{RuleTitle}"
+        - tipo: usuario
+          valor: "{TargetUserName}"
