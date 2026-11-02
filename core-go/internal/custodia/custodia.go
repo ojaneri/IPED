@@ -154,6 +154,31 @@ func (r *Registro) Verificar() (int, bool, error) {
 	return total, true, nil
 }
 
+// ListarEntradas lê e retorna todas as entradas registradas na cadeia de custódia.
+func (r *Registro) ListarEntradas() ([]Entrada, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	f, err := os.Open(r.caminho)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []Entrada{}, nil
+		}
+		return nil, err
+	}
+	defer f.Close()
+
+	var lista []Entrada
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		var e Entrada
+		if err := json.Unmarshal(scanner.Bytes(), &e); err == nil {
+			lista = append(lista, e)
+		}
+	}
+	return lista, scanner.Err()
+}
+
 // UltimoHash retorna o hash da cabeça da cadeia de custódia.
 func (r *Registro) UltimoHash() string {
 	r.mu.Lock()

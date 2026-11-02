@@ -216,11 +216,14 @@ iped-hub.exe entidades /path/to/case ip
 # Verify cryptographic chain of custody
 iped-hub.exe verificar /path/to/case
 
+# Launch local interactive Web UI dashboard (pure Go, zero external dependencies)
+iped-hub.exe web /path/to/case --porta 8080 --abrir
+
 # Launch MCP Server for AI agents
 iped-hub.exe mcp
 ```
 
-### Full Go Hub MCP Tools Reference (18 Tools)
+### Full Go Hub MCP Tools Reference (19 Tools)
 
 | Tool | Category | Description |
 | :--- | :--- | :--- |
@@ -239,6 +242,7 @@ iped-hub.exe mcp
 | `iped_entities_query` | Search & Triage | Correlates extracted entities (IPs, users, services) with timeline events. |
 | `iped_bookmarks_add` | Analysis & Notes | Adds a forensic bookmark and note to evidence/items. |
 | `iped_bookmarks_list` | Analysis & Notes | Lists all forensic bookmarks in the active case. |
+| `iped_web_serve` | Visualization | Launches or returns the local Web UI dashboard URL for human examiner inspection. |
 | `iped_deep_process` | Deep Examination | Launches headless IPED Lite Java examination in background. |
 | `iped_deep_status` | Deep Examination | Tracks progress and duration of the background Java worker. |
 | `iped_import_iped_case` | Deep Examination | Ingests existing IPED case files (`FileList.csv`) into the unified SQLite database. |

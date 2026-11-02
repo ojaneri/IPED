@@ -36,6 +36,12 @@ func TestCustodiaEncadeada(t *testing.T) {
 		t.Fatalf("verificação falhou: total=%d, ok=%v, err=%v", total, ok, err)
 	}
 
+	// 2.1 Lista entradas
+	entradas, err := reg.ListarEntradas()
+	if err != nil || len(entradas) != 3 {
+		t.Fatalf("falha ao listar entradas: total=%d, err=%v", len(entradas), err)
+	}
+
 	// 3. Testa persistência recarregando
 	reg2, err := Abrir(tmpDir)
 	if err != nil {

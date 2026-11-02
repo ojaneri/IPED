@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPED Lite Hub - Painel Pericial Forense</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --primary-hover: #0284c7;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #10b981;
+      --info: #64748b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+    
+    /* Top Header */
+    header { background: #0b1120; border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+    .brand { display: flex; align-items: center; gap: 0.75rem; }
+    .logo-badge { background: linear-gradient(135deg, #0284c7, #38bdf8); color: #fff; font-weight: 800; font-size: 1.1rem; padding: 0.35rem 0.75rem; border-radius: 6px; letter-spacing: 0.5px; }
+    .brand h1 { font-size: 1.25rem; font-weight: 600; color: #fff; }
+    .case-badge { display: flex; align-items: center; gap: 0.5rem; background: var(--card-bg); border: 1px solid var(--border); padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--success); display: inline-block; box-shadow: 0 0 8px var(--success); }
+    .status-dot.danger { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+    
+    /* Nav Tabs */
+    nav { background: #131d31; border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; gap: 0.5rem; }
+    .tab-btn { background: none; border: none; border-bottom: 3px solid transparent; color: var(--text-muted); font-size: 0.95rem; font-weight: 500; padding: 0.9rem 1.25rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 0.4rem; }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+    
+    /* Content Container */
+    main { flex: 1; padding: 2rem; max-width: 1400px; margin: 0 auto; width: 100%; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.2s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Dashboard Cards */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-bottom: 2rem; }
+    .kpi-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between; }
+    .kpi-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.5rem; }
+    .kpi-value { font-size: 2.2rem; font-weight: 700; color: #fff; }
+    .kpi-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem; }
+
+    /* Panels & Tables */
+    .panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+    .panel-title { font-size: 1.1rem; font-weight: 600; color: #fff; }
+    
+    /* Form controls */
+    .controls-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    input[type="text"], select { background: #0f172a; border: 1px solid var(--border); color: #fff; padding: 0.6rem 0.9rem; border-radius: 6px; font-size: 0.9rem; }
+    input[type="text"]:focus, select:focus { outline: none; border-color: var(--primary); }
+    .btn { background: var(--primary); color: #0b1120; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .btn:hover { background: var(--primary-hover); }
+
+    /* Tables */
+    .table-container { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+    th { background: #0f172a; color: var(--text-muted); font-weight: 600; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
+    td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+    /* Badges */
+    .badge { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+    .badge-critica, .badge-critical { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .badge-alta, .badge-high { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .badge-media, .badge-medium { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+    .badge-baixa, .badge-info { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border: 1px solid rgba(100, 116, 139, 0.4); }
+    .badge-sucesso { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.85rem; }
+    .hash-cell { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Alert Cards */
+    .alert-card { background: #131c30; border-left: 4px solid var(--danger); border-radius: 6px; padding: 1rem 1.25rem; margin-bottom: 1rem; border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .alert-card.alta { border-left-color: var(--warning); }
+    .alert-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .alert-card-title { font-weight: 600; font-size: 1rem; color: #fff; }
+    .alert-card-desc { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.4rem; }
+    .alert-card-meta { font-size: 0.8rem; color: #64748b; }
+    
+    /* Footer */
+    footer { text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.8rem; border-top: 1px solid var(--border); background: #0b1120; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <span class="logo-badge">IPED LITE HUB</span>
+      <h1>Painel Forense Híbrido</h1>
+    </div>
+    <div class="case-badge">
+      <span class="status-dot" id="custody-dot"></span>
+      <span id="header-case-name">Carregando caso...</span>
+      <span style="color: var(--text-muted); margin: 0 4px;">|</span>
+      <span id="header-examiner">Perito</span>
+    </div>
+  </header>
+
+  <nav>
+    <button class="tab-btn active" onclick="switchTab('tab-overview')">📊 Visão Geral</button>
+    <button class="tab-btn" onclick="switchTab('tab-timeline')">⏱️ Linha do Tempo</button>
+    <button class="tab-btn" onclick="switchTab('tab-alerts')">🚨 Alertas & Sigma</button>
+    <button class="tab-btn" onclick="switchTab('tab-entities')">🔍 Entidades & IOCs</button>
+    <button class="tab-btn" onclick="switchTab('tab-custody')">🔗 Cadeia de Custódia</button>
+  </nav>
+
+  <main>
+    <!-- 1. ABA VISÃO GERAL -->
+    <div id="tab-overview" class="tab-content active">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-title">Evidências Registradas</div>
+          <div class="kpi-value" id="kpi-evidences">0</div>
+          <div class="kpi-sub">Ingestão in-situ sem duplicação</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Eventos na Timeline</div>
+          <div class="kpi-value" id="kpi-events">0</div>
+          <div class="kpi-sub">$MFT, EVTX, Web, SQLite</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Alertas Críticos & Altos</div>
+          <div class="kpi-value" id="kpi-alerts" style="color: #f87171;">0</div>
+          <div class="kpi-sub">Regras Sigma comportamentais</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Passos de Custódia</div>
+          <div class="kpi-value" id="kpi-custody">0</div>
+          <div class="kpi-sub" id="kpi-custody-status">Verificando cadeia SHA-256...</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Metadados da Operação Pericial</h2>
+        </div>
+        <table>
+          <tbody>
+            <tr><th style="width: 200px;">Identificador</th><td id="meta-id" class="mono">-</td></tr>
+            <tr><th>Nome do Caso</th><td id="meta-nome">-</td></tr>
+            <tr><th>Perito Responsável</th><td id="meta-perito">-</td></tr>
+            <tr><th>Data de Criação</th><td id="meta-criacao" class="mono">-</td></tr>
+            <tr><th>Diretório do Caso</th><td id="meta-dir" class="mono">-</td></tr>
+            <tr><th>Hash Atual da Cadeia</th><td id="meta-head" class="mono hash-cell">-</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Evidências Ingeridas</h2>
+        </div>
+        <div class="table-container">
+          <table id="tbl-evidences">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th>Tamanho</th>
+                <th>Modo</th>
+                <th>SHA-256</th>
+                <th>MD5</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. ABA TIMELINE -->
+    <div id="tab-timeline" class="tab-content">
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Linha do Tempo de Eventos Forenses</h2>
+        </div>
+        <div class="controls-row">
+          <input type="text" id="timeline-search" placeholder="Buscar por termo (* para todos)..." style="flex: 1; min-width: 250px;">
+          <select id="timeline-severity">
+            <option value="">Todas as Severidades</option>
+            <option value="critica">Crítica</option>
+            <option value="alta">Alta</option>
+            <option value="media">Média</option>
+            <option value="baixa">Baixa</option>
+            <option value="info">Info</option>
+          </select>
+          <select id="timeline-limit">
+            <option value="50">50 registros</option>
+            <option value="100">100 registros</option>
+            <option value="250">250 registros</option>
+          </select>
+          <button class="btn" onclick="carregarTimeline()">Filtrar</button>
+        </div>
+
+        <div class="table-container">
+          <table id="tbl-timeline">
+            <thead>
+              <tr>
+                <th style="width: 170px;">Data/Hora (UTC)</th>
+                <th style="width: 100px;">Severidade</th>
+                <th style="width: 140px;">Fonte</th>
+                <th>Descrição do Evento</th>
+                <th style="width: 200px;">Origem Local</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. ABA ALERTAS -->
+    <div id="tab-alerts" class="tab-content">
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Detecções Prioritárias & Regras Sigma</h2>
+          <select id="alerts-filter" onchange="carregarAlertas()" style="width: 180px;">
+            <option value="">Críticas e Altas</option>
+            <option value="critica">Apenas Críticas</option>
+            <option value="alta">Apenas Altas</option>
+          </select>
+        </div>
+        <div id="alerts-container">
+          <p style="color: var(--text-muted);">Carregando alertas...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. ABA ENTIDADES -->
+    <div id="tab-entities" class="tab-content">
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Entidades Forenses Correlacionadas</h2>
+        </div>
+        <div class="controls-row">
+          <select id="entity-type" style="width: 160px;">
+            <option value="*">Todos os Tipos</option>
+            <option value="ip">Endereço IP</option>
+            <option value="usuario">Conta de Usuário</option>
+            <option value="servico">Serviço Windows</option>
+            <option value="arquivo">Nome de Arquivo</option>
+            <option value="url">URL / Domínio</option>
+            <option value="email">E-mail</option>
+          </select>
+          <input type="text" id="entity-query" placeholder="Buscar valor da entidade..." style="flex: 1; min-width: 250px;">
+          <button class="btn" onclick="carregarEntidades()">Buscar</button>
+        </div>
+
+        <div class="table-container">
+          <table id="tbl-entities">
+            <thead>
+              <tr>
+                <th style="width: 140px;">Tipo</th>
+                <th style="width: 220px;">Valor / IOC</th>
+                <th style="width: 170px;">Data do Evento</th>
+                <th style="width: 140px;">Fonte</th>
+                <th>Descrição do Contexto</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. ABA CUSTÓDIA -->
+    <div id="tab-custody" class="tab-content">
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Trilha Criptográfica de Custódia (custodia.jsonl)</h2>
+          <span class="badge badge-sucesso" id="custody-badge-verify">INTEGRIDADE VERIFICADA</span>
+        </div>
+        <div class="table-container">
+          <table id="tbl-custody">
+            <thead>
+              <tr>
+                <th style="width: 60px;">#</th>
+                <th style="width: 180px;">Data/Hora</th>
+                <th style="width: 180px;">Ação</th>
+                <th>Detalhes</th>
+                <th style="width: 150px;">Hash Anterior</th>
+                <th style="width: 150px;">Hash Atual (SHA-256)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    IPED Lite Hub v1.0.0 &bull; Arquitetura Híbrida Go + Java &bull; Servidor Web Local e Isolado
+  </footer>
+
+  <script>
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      event.currentTarget.classList.add('active');
+
+      if (tabId === 'tab-timeline') carregarTimeline();
+      if (tabId === 'tab-alerts') carregarAlertas();
+      if (tabId === 'tab-entities') carregarEntidades();
+      if (tabId === 'tab-custody') carregarCustodia();
+    }
+
+    async function carregarStatusGeral() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        
+        document.getElementById('header-case-name').innerText = data.case_name || 'Sem Caso Aberto';
+        document.getElementById('header-examiner').innerText = data.examiner || '';
+        
+        const dot = document.getElementById('custody-dot');
+        if (data.custody_valid) {
+          dot.className = 'status-dot';
+          document.getElementById('kpi-custody-status').innerText = '100% íntegra e auditada';
+        } else {
+          dot.className = 'status-dot danger';
+          document.getElementById('kpi-custody-status').innerText = 'ATENÇÃO: Adulteração detectada!';
+        }
+
+        document.getElementById('kpi-evidences').innerText = data.total_evidences || 0;
+        document.getElementById('kpi-events').innerText = data.total_events || 0;
+        document.getElementById('kpi-custody').innerText = data.custody_records || 0;
+
+        document.getElementById('meta-id').innerText = data.case_id || '-';
+        document.getElementById('meta-nome').innerText = data.case_name || '-';
+        document.getElementById('meta-perito').innerText = data.examiner || '-';
+        document.getElementById('meta-dir').innerText = data.path || '-';
+        document.getElementById('meta-head').innerText = data.custody_head || '-';
+        document.getElementById('meta-criacao').innerText = data.created_at || '-';
+
+        // Carrega alertas para atualizar KPI
+        const resAlertas = await fetch('/api/alertas');
+        const dAlertas = await resAlertas.json();
+        document.getElementById('kpi-alerts').innerText = dAlertas.total || 0;
+
+        // Carrega tabela de evidências
+        carregarEvidencias();
+      } catch (err) {
+        console.error('Erro carregando status:', err);
+      }
+    }
+
+    async function carregarEvidencias() {
+      try {
+        const res = await fetch('/api/evidencias');
+        const data = await res.json();
+        const tbody = document.querySelector('#tbl-evidences tbody');
+        tbody.innerHTML = '';
+        if (!data.evidences || data.evidences.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Nenhuma evidência registrada</td></tr>';
+          return;
+        }
+        data.evidences.forEach(ev => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="mono">${ev.id}</td>
+            <td><strong>${ev.nome}</strong></td>
+            <td><span class="badge badge-info">${ev.tipo || 'arquivo'}</span></td>
+            <td class="mono">${(ev.tamanho / (1024*1024)).toFixed(2)} MB</td>
+            <td><span class="badge ${ev.in_situ ? 'badge-sucesso' : 'badge-info'}">${ev.in_situ ? 'In-Situ' : 'Cópia'}</span></td>
+            <td class="mono hash-cell" title="${ev.sha256}">${ev.sha256}</td>
+            <td class="mono hash-cell" title="${ev.md5}">${ev.md5}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Erro carregando evidências:', err);
+      }
+    }
+
+    async function carregarTimeline() {
+      const q = document.getElementById('timeline-search').value;
+      const sev = document.getElementById('timeline-severity').value;
+      const lim = document.getElementById('timeline-limit').value;
+
+      try {
+        const res = await fetch(`/api/eventos?query=${encodeURIComponent(q)}&severidade=${encodeURIComponent(sev)}&limit=${lim}`);
+        const data = await res.json();
+        const tbody = document.querySelector('#tbl-timeline tbody');
+        tbody.innerHTML = '';
+
+        if (!data.events || data.events.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-muted);">Nenhum evento encontrado</td></tr>';
+          return;
+        }
+
+        data.events.forEach(ev => {
+          const tr = document.createElement('tr');
+          const sClass = 'badge-' + (ev.severidade || 'info').toLowerCase();
+          tr.innerHTML = `
+            <td class="mono">${ev.data}</td>
+            <td><span class="badge ${sClass}">${ev.severidade}</span></td>
+            <td><strong>${ev.fonte}</strong></td>
+            <td>${ev.descricao}</td>
+            <td class="mono" style="font-size: 0.8rem; color: var(--text-muted);">${ev.origem_local}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Erro na timeline:', err);
+      }
+    }
+
+    async function carregarAlertas() {
+      const sev = document.getElementById('alerts-filter').value;
+      const container = document.getElementById('alerts-container');
+      try {
+        const res = await fetch(`/api/alertas?severidade=${encodeURIComponent(sev)}`);
+        const data = await res.json();
+        container.innerHTML = '';
+
+        if (!data.alerts || data.alerts.length === 0) {
+          container.innerHTML = '<p style="color: var(--text-muted); padding: 1rem;">Nenhum alerta crítico ou de alta prioridade registrado.</p>';
+          return;
+        }
+
+        data.alerts.forEach(a => {
+          const div = document.createElement('div');
+          const isAlta = a.severidade.toLowerCase() === 'alta' || a.severidade.toLowerCase() === 'high';
+          div.className = `alert-card ${isAlta ? 'alta' : ''}`;
+          const badgeClass = isAlta ? 'badge-alta' : 'badge-critica';
+          div.innerHTML = `
+            <div class="alert-card-header">
+              <span class="badge ${badgeClass}">${a.severidade}</span>
+              <span class="mono" style="font-size: 0.8rem; color: var(--text-muted);">${a.data}</span>
+            </div>
+            <div class="alert-card-title">${a.descricao}</div>
+            <div class="alert-card-meta">Origem: <strong>${a.fonte}</strong> &bull; Local: <code>${a.origem_local}</code></div>
+          `;
+          container.appendChild(div);
+        });
+      } catch (err) {
+        console.error('Erro nos alertas:', err);
+      }
+    }
+
+    async function carregarEntidades() {
+      const tipo = document.getElementById('entity-type').value;
+      const q = document.getElementById('entity-query').value;
+      try {
+        const res = await fetch(`/api/entidades?type=${encodeURIComponent(tipo)}&query=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        const tbody = document.querySelector('#tbl-entities tbody');
+        tbody.innerHTML = '';
+
+        if (!data.entities || data.entities.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Nenhuma entidade localizada</td></tr>';
+          return;
+        }
+
+        data.entities.forEach(ent => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><span class="badge badge-info">${ent.tipo}</span></td>
+            <td><strong class="mono" style="color: var(--primary);">${ent.valor}</strong></td>
+            <td class="mono">${ent.data}</td>
+            <td>${ent.fonte}</td>
+            <td>${ent.descricao}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Erro nas entidades:', err);
+      }
+    }
+
+    async function carregarCustodia() {
+      try {
+        const res = await fetch('/api/custodia');
+        const data = await res.json();
+        const tbody = document.querySelector('#tbl-custody tbody');
+        tbody.innerHTML = '';
+
+        const badge = document.getElementById('custody-badge-verify');
+        if (data.valid) {
+          badge.className = 'badge badge-sucesso';
+          badge.innerText = `INTEGRIDADE VERIFICADA (${data.total_steps} PASSOS)`;
+        } else {
+          badge.className = 'badge badge-critica';
+          badge.innerText = 'CUSTÓDIA ADULTERADA / INVÁLIDA';
+        }
+
+        if (!data.records || data.records.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-muted);">Sem registros de custódia</td></tr>';
+          return;
+        }
+
+        data.records.forEach(r => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="mono">${r.indice}</td>
+            <td class="mono">${r.quando}</td>
+            <td><span class="badge badge-info">${r.acao}</span></td>
+            <td>${r.detalhes}</td>
+            <td class="mono hash-cell" title="${r.hash_anterior}">${r.hash_anterior}</td>
+            <td class="mono hash-cell" title="${r.hash}">${r.hash}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Erro na custódia:', err);
+      }
+    }
+
+    // Inicialização
+    document.addEventListener('DOMContentLoaded', () => {
+      carregarStatusGeral();
+    });
+  </script>
+</body>
+</html>

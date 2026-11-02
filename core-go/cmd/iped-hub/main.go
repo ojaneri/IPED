@@ -5,13 +5,19 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	"os/signal"
+	"runtime"
 	"strconv"
+	"syscall"
+	"time"
 
 	"github.com/ojaneri/ipedlite/core-go/internal/caso"
 	"github.com/ojaneri/ipedlite/core-go/internal/instalador"
 	"github.com/ojaneri/ipedlite/core-go/internal/mcp"
 	"github.com/ojaneri/ipedlite/core-go/internal/modulo"
 	"github.com/ojaneri/ipedlite/core-go/internal/motor"
+	"github.com/ojaneri/ipedlite/core-go/internal/web"
 	"github.com/ojaneri/ipedlite/core-go/internal/worker"
 )
 
@@ -335,13 +341,81 @@ func main() {
 			fmt.Printf("[%s] %s -> Evento #%d (%s: %s)\n", e.Tipo, e.Valor, e.EventoID, e.Fonte, e.Descricao)
 		}
 
+	case "web":
+		if len(args) < 2 {
+			fmt.Println("Uso: iped-hub web <pasta_caso> [--porta 8080] [--abrir]")
+			os.Exit(1)
+		}
+		dirCaso := args[1]
+		porta := 8080
+		abrirNavegador := false
+
+		for i := 2; i < len(args); i++ {
+			if (args[i] == "--porta" || args[i] == "-p") && i+1 < len(args) {
+				if p, err := strconv.Atoi(args[i+1]); err == nil && p > 0 {
+					porta = p
+					i++
+				}
+			} else if args[i] == "--abrir" || args[i] == "-a" {
+				abrirNavegador = true
+			}
+		}
+
+		c, err := caso.Abrir(dirCaso)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Erro abrindo caso: %v\n", err)
+			os.Exit(1)
+		}
+		defer c.Fechar()
+
+		servidorWeb := web.NovoServidor(c, porta)
+		urlBase, err := servidorWeb.Iniciar()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Erro iniciando servidor web: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("====================================================\n")
+		fmt.Printf("  IPED Lite Hub - Painel Forense Web Iniciado!\n")
+		fmt.Printf("  Caso: %s (%s)\n", c.Info.Nome, c.Info.ID)
+		fmt.Printf("  URL:  %s\n", urlBase)
+		fmt.Printf("  Pressione Ctrl+C para encerrar o servidor.\n")
+		fmt.Printf("====================================================\n")
+
+		if abrirNavegador {
+			abrirURL(urlBase)
+		}
+
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+		<-sigChan
+
+		fmt.Println("\nEncerrando servidor web...")
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		servidorWeb.Parar(ctx)
+		fmt.Println("Servidor finalizado com sucesso.")
+
 	case "versao":
 		fmt.Printf("IPED Lite Hub v%s (arquitetura híbrida Go + Java)\n", versao)
 
 	default:
-		fmt.Printf("Comando desconhecido: %s\nComandos disponíveis: mcp, novo, evidencia, verificar, status, importar-iped, modulos, preparar, triagem, alertas, entidades, versao\n", comando)
+		fmt.Printf("Comando desconhecido: %s\nComandos disponíveis: mcp, novo, evidencia, verificar, status, importar-iped, modulos, preparar, triagem, alertas, entidades, web, versao\n", comando)
 		os.Exit(1)
 	}
+}
+
+func abrirURL(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	_ = cmd.Start()
 }
 
 func executarMCP() {

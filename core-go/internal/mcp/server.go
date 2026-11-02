@@ -8,10 +8,12 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/ojaneri/ipedlite/core-go/internal/caso"
 	"github.com/ojaneri/ipedlite/core-go/internal/modulo"
 	"github.com/ojaneri/ipedlite/core-go/internal/motor"
+	"github.com/ojaneri/ipedlite/core-go/internal/web"
 	"github.com/ojaneri/ipedlite/core-go/internal/worker"
 )
 
@@ -67,6 +69,8 @@ type ToolCallResult struct {
 type Server struct {
 	casoAtivo      *caso.Caso
 	worker         *worker.IPEDWorker
+	webServer      *web.Servidor
+	webURL         string
 	dirModulos     string
 	dirFerramentas string
 	mu             sync.Mutex
@@ -386,6 +390,16 @@ func (s *Server) definicaoFerramentas() []ToolInfo {
 					"type":  map[string]string{"type": "string", "description": "Tipo de entidade (ex: 'ip', 'email', 'usuario', 'arquivo' ou '*' para todos)"},
 					"query": map[string]string{"type": "string", "description": "Termo ou padrão do valor da entidade para busca"},
 					"limit": map[string]string{"type": "integer", "description": "Limite máximo de entidades retornadas (padrão 50)"},
+				},
+			},
+		},
+		{
+			Name:        "iped_web_serve",
+			Description: "Inicia ou retorna a URL do servidor web local para inspeção visual do caso pelo perito",
+			InputSchema: ToolInputSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"port": map[string]string{"type": "integer", "description": "Porta TCP local para o servidor (padrão 8080)"},
 				},
 			},
 		},
@@ -766,6 +780,34 @@ func (s *Server) executarFerramenta(nome string, args map[string]interface{}) To
 			"entities": entidades,
 		})
 
+	case "iped_web_serve":
+		if s.casoAtivo == nil {
+			return respostaErro("Nenhum caso aberto. Abra um caso antes de iniciar o servidor web.")
+		}
+		porta := 8080
+		if p, ok := args["port"].(float64); ok && p > 0 {
+			porta = int(p)
+		}
+		if s.webServer != nil {
+			return respostaSucesso(map[string]interface{}{
+				"status":  "running",
+				"url":     s.webURL,
+				"message": "Servidor web já está ativo para este caso.",
+			})
+		}
+		srv := web.NovoServidor(s.casoAtivo, porta)
+		urlBase, err := srv.Iniciar()
+		if err != nil {
+			return respostaErro("Erro iniciando servidor web: " + err.Error())
+		}
+		s.webServer = srv
+		s.webURL = urlBase
+		return respostaSucesso(map[string]interface{}{
+			"status":  "started",
+			"url":     urlBase,
+			"message": "Painel web forense iniciado com sucesso.",
+		})
+
 	default:
 		return respostaErro(fmt.Sprintf("Ferramenta não encontrada: %s", nome))
 	}
@@ -795,10 +837,16 @@ func respostaErro(msg string) ToolCallResult {
 	}
 }
 
-// Fechar encerra o caso ativo se houver.
+// Fechar encerra o servidor web e o caso ativo se houver.
 func (s *Server) Fechar() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.webServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = s.webServer.Parar(ctx)
+		s.webServer = nil
+	}
 	if s.casoAtivo != nil {
 		return s.casoAtivo.Fechar()
 	}

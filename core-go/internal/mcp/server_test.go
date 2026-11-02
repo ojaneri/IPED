@@ -31,6 +31,8 @@ func TestMCPServerEmMemoria(t *testing.T) {
 		`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"iped_alerts_list","arguments":{}}}`,
 		// 8. iped_entities_query
 		`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"iped_entities_query","arguments":{"type":"*","query":"*"}}}`,
+		// 9. iped_web_serve
+		`{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"iped_web_serve","arguments":{"port":0}}}`,
 	}
 
 	payloadEntrada := strings.Join(requisicoes, "\n") + "\n"
@@ -61,8 +63,8 @@ func TestMCPServerEmMemoria(t *testing.T) {
 	json.Unmarshal([]byte(linhasSaida[1]), &resp2)
 	resTools := resp2.Result.(map[string]interface{})
 	toolsList := resTools["tools"].([]interface{})
-	if len(toolsList) < 18 {
-		t.Fatalf("esperava pelo menos 18 ferramentas no MCP, obteve %d", len(toolsList))
+	if len(toolsList) < 19 {
+		t.Fatalf("esperava pelo menos 19 ferramentas no MCP, obteve %d", len(toolsList))
 	}
 
 	// Valida resposta 3 (iped_create_case)
