@@ -1,0 +1,59 @@
+contrato: 1
+nome: iped-lite
+titulo: Exame Profundo do Conteúdo (IPED Lite)
+versao: "4.4.0-snapshot"
+opcional: true
+reconhece:
+  - tipo: disco
+    magica_hex: "455646090d0aff00" # E01
+    extensoes: [.dd, .raw, .e01, .vhd, .vmdk, .img]
+  - tipo: pacote
+    extensoes: [.zip, .tar, .7z, .ufdr]
+consome: [disco, pacote]
+modo: imagem
+comando:
+  windows:
+    exec: java.exe
+    args:
+      - "-Xmx1500m"
+      - "-jar"
+      - "{ferramenta}/iped.jar"
+      - "-d"
+      - "{entrada}"
+      - "-o"
+      - "{saida}/exame"
+      - "-profile"
+      - "lite"
+      - "--nogui"
+      - "--nologfile"
+  linux:
+    exec: java
+    args:
+      - "-Xmx1500m"
+      - "-jar"
+      - "{ferramenta}/iped.jar"
+      - "-d"
+      - "{entrada}"
+      - "-o"
+      - "{saida}/exame"
+      - "-profile"
+      - "lite"
+      - "--nogui"
+      - "--nologfile"
+saida:
+  arquivos: "exame/FileList.csv"
+  formato: csv
+  mapas:
+    - tipo: evento
+      quando: "{Modified}"
+      fonte: "IPED Lite: {Category}"
+      descricao: "{Name} ({Path})"
+      severidade: "info"
+      origem_local: "{TrackId}"
+      entidades:
+        - tipo: hash_md5
+          valor: "{MD5}"
+        - tipo: hash_sha1
+          valor: "{SHA1}"
+        - tipo: extensao
+          valor: "{Extension}"

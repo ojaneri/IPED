@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/ojaneri/ipedlite/core-go/internal/caso"
+	"github.com/ojaneri/ipedlite/core-go/internal/modulo"
 	"github.com/ojaneri/ipedlite/core-go/internal/worker"
 )
 
@@ -62,11 +63,12 @@ type ToolCallResult struct {
 
 // Server implementa o servidor MCP para o IPED Lite Hub.
 type Server struct {
-	casoAtivo *caso.Caso
-	worker    *worker.IPEDWorker
-	mu        sync.Mutex
-	in        io.Reader
-	out       io.Writer
+	casoAtivo  *caso.Caso
+	worker     *worker.IPEDWorker
+	dirModulos string
+	mu         sync.Mutex
+	in         io.Reader
+	out        io.Writer
 }
 
 // NovoServer instancia um novo servidor MCP.
@@ -75,10 +77,17 @@ func NovoServer(in io.Reader, out io.Writer, w *worker.IPEDWorker) *Server {
 		cfg := worker.ConfigAutodetectar()
 		w = worker.NovoWorker(cfg)
 	}
+	dirModulos := "modulos"
+	if _, err := os.Stat(dirModulos); os.IsNotExist(err) {
+		if _, err := os.Stat("core-go/modulos"); err == nil {
+			dirModulos = "core-go/modulos"
+		}
+	}
 	return &Server{
-		in:     in,
-		out:    out,
-		worker: w,
+		in:         in,
+		out:        out,
+		worker:     w,
+		dirModulos: dirModulos,
 	}
 }
 
@@ -292,6 +301,37 @@ func (s *Server) definicaoFerramentas() []ToolInfo {
 				Properties: map[string]interface{}{},
 			},
 		},
+		{
+			Name:        "iped_import_iped_case",
+			Description: "Importa os resultados de um caso processado pelo IPED (FileList.csv) para o SQLite e timeline do caso ativo",
+			InputSchema: ToolInputSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"iped_case_dir": map[string]string{"type": "string", "description": "Caminho da pasta do caso processado pelo IPED"},
+					"evidence_id":   map[string]string{"type": "integer", "description": "ID da evidência associada (opcional, padrão 1)"},
+				},
+				Required: []string{"iped_case_dir"},
+			},
+		},
+		{
+			Name:        "iped_modules_list",
+			Description: "Lista todos os módulos periciais declarativos (modulo.yaml) disponíveis no sistema",
+			InputSchema: ToolInputSchema{
+				Type:       "object",
+				Properties: map[string]interface{}{},
+			},
+		},
+		{
+			Name:        "iped_identify_evidence",
+			Description: "Identifica o tipo pericial de uma evidência analisando assinatura mágica e extensão",
+			InputSchema: ToolInputSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+					"path": map[string]string{"type": "string", "description": "Caminho do arquivo ou imagem da evidência"},
+				},
+				Required: []string{"path"},
+			},
+		},
 	}
 }
 
@@ -491,6 +531,54 @@ func (s *Server) executarFerramenta(nome string, args map[string]interface{}) To
 			"elapsed_seconds":   duracao.Seconds(),
 			"elapsed_formatted": duracao.String(),
 			"error":             err,
+		})
+
+	case "iped_import_iped_case":
+		if s.casoAtivo == nil {
+			return respostaErro("Nenhum caso aberto. Abra um caso antes de importar dados do IPED.")
+		}
+		ipedDir, _ := args["iped_case_dir"].(string)
+		var evID int64 = 1
+		if evIDFloat, ok := args["evidence_id"].(float64); ok && evIDFloat > 0 {
+			evID = int64(evIDFloat)
+		}
+		res, err := s.casoAtivo.ImportarCasoIPED(ipedDir, evID)
+		if err != nil {
+			return respostaErro("Erro importando caso IPED: " + err.Error())
+		}
+		return respostaSucesso(res)
+
+	case "iped_modules_list":
+		modulos, err := modulo.CarregarModulos(s.dirModulos)
+		if err != nil {
+			return respostaErro("Erro carregando módulos: " + err.Error())
+		}
+		var lista []map[string]interface{}
+		for _, m := range modulos {
+			lista = append(lista, map[string]interface{}{
+				"nome":     m.Nome,
+				"titulo":   m.Titulo,
+				"versao":   m.Versao,
+				"opcional": m.Opcional,
+				"consome":  m.Consome,
+				"modo":     m.Modo,
+			})
+		}
+		return respostaSucesso(map[string]interface{}{
+			"total":   len(lista),
+			"modules": lista,
+		})
+
+	case "iped_identify_evidence":
+		caminho, _ := args["path"].(string)
+		modulos, _ := modulo.CarregarModulos(s.dirModulos)
+		tipo, err := modulo.IdentificarTipo(caminho, modulos)
+		if err != nil {
+			return respostaErro("Erro identificando evidência: " + err.Error())
+		}
+		return respostaSucesso(map[string]interface{}{
+			"path": caminho,
+			"type": tipo,
 		})
 
 	default:

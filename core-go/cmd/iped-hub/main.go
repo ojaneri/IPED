@@ -7,6 +7,7 @@ import (
 
 	"github.com/ojaneri/ipedlite/core-go/internal/caso"
 	"github.com/ojaneri/ipedlite/core-go/internal/mcp"
+	"github.com/ojaneri/ipedlite/core-go/internal/modulo"
 	"github.com/ojaneri/ipedlite/core-go/internal/worker"
 )
 
@@ -125,6 +126,47 @@ func main() {
 		fmt.Printf("Eventos na Timeline: %d\n", totalEventos)
 		fmt.Printf("Marcações (Bookmarks): %d\n", len(bks))
 		fmt.Printf("Cadeia de Custódia: %d passos (Íntegra: %v)\n", totalCustodia, ok)
+
+	case "importar-iped":
+		if len(args) < 3 {
+			fmt.Println("Uso: iped-hub importar-iped <pasta_caso> <pasta_saida_iped>")
+			os.Exit(1)
+		}
+		dirCaso := args[1]
+		dirIPED := args[2]
+
+		c, err := caso.Abrir(dirCaso)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Erro abrindo caso: %v\n", err)
+			os.Exit(1)
+		}
+		defer c.Fechar()
+
+		fmt.Printf("Importando caso IPED de '%s' para o SQLite do caso...\n", dirIPED)
+		res, err := c.ImportarCasoIPED(dirIPED, 1)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Falha na importação: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Importação concluída com sucesso!\nItens indexados: %d\nCategorias: %d\nMarcações: %d\nArquivos apagados: %d\nRecuperados: %d\n",
+			res.TotalItens, res.Categorias, res.Marcacoes, res.Apagados, res.Recuperados)
+
+	case "modulos":
+		dirModulos := "modulos"
+		if _, err := os.Stat(dirModulos); os.IsNotExist(err) {
+			if _, err := os.Stat("core-go/modulos"); err == nil {
+				dirModulos = "core-go/modulos"
+			}
+		}
+		lista, err := modulo.CarregarModulos(dirModulos)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Erro carregando módulos: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Módulos registrados (%d):\n", len(lista))
+		for _, m := range lista {
+			fmt.Printf(" - [%s] %s v%s (Consome: %v, Modo: %s, Opcional: %v)\n", m.Nome, m.Titulo, m.Versao, m.Consome, m.Modo, m.Opcional)
+		}
 
 	case "versao":
 		fmt.Printf("IPED Lite Hub v%s (arquitetura híbrida Go + Java)\n", versao)
